@@ -134,6 +134,7 @@ const processName = async (url, type, imgPath) => {
   let isHave = await PhotoAlias.find({ url })
   if (isHave.length > 0) return result
 
+  console.log(imgPath)
   // 存储图片到本地的函数
   // 写死路径进行测试
   // const imgUrl = "https://picsum.photos/id/237/800/600"
@@ -148,7 +149,7 @@ const processName = async (url, type, imgPath) => {
   // let image = "ImageServices.download(url);" // 10000000000
 
 
-  // // 压缩并删除exif -- 大文件处理
+  // 压缩并删除exif -- 大文件处理
   // if (type == 'large') {
   //   // image = await sharp(image).jpeg({ quality: 81 }).toBuffer() // 10000000000
   //   image = "sharp(image).jpeg({ quality: 81 }).toBuffer()"
@@ -156,21 +157,26 @@ const processName = async (url, type, imgPath) => {
   // // image = await sharp(image).toFormat('jpeg', { mozjpeg: true }).toBuffer() // 10000000000
   // image = "sharp(image).toFormat('jpeg', { mozjpeg: true }).toBuffer()"
 
-  // // const { customAlphabet } = await import('nanoid')
-  // // let name = customAlphabet(alphabet, 10)()
+  const { customAlphabet } = await import('nanoid')
+  let name = customAlphabet(alphabet, 10)()
+
+  const imgUrl = "https://picsum.photos/id/237/800/600"
+  const imgName = `${name}.jpg`
+  let downData1 = await imgDownload(imgUrl, imgPath, imgName)
+
   // let name = "nanoid_ALL_SAME"
 
   // let renamePic = Path.resolve(__dirname, '../public/photosAlias/' + name + '.jpg') // 1000000
   // let renamePic = Path.resolve(__dirname, './config/photosAlias/' + name + '.txt')
   // fs.writeFileSync(renamePic, image)
 
-  // // 上传S3
-  // // await uploadImageToS3_aichat(`${name}.jpg`, renamePic, 'photo100apps')
+  // 上传S3
+  // await uploadImageToS3_aichat(`${name}.jpg`, renamePic, 'photo100apps')
 
 
-  // result = { url, alias: name, ts: new Date().getTime() }
+  result = { url, alias: name, ts: new Date().getTime() }
 
-  // return result
+  return result
 }
 
 
@@ -221,92 +227,92 @@ const PhotosRename = async (data) => {
 }
 
 
-// const AddProducts = async (characters) => {
-//   // 初始化最终入库数组
-//   const addData = [];
+const AddProducts = async (characters) => {
+  // 初始化最终入库数组
+  const addData = [];
 
-//   // 遍历原始数组，逐项处理并汇总结果
-//   for (const item of characters) {
-//     // 单个处理
-//     const processedItem = await processSingleProductItem(item);
-//     addData.push(...processedItem); // 合并当前项的处理结果
-//   }
+  // 遍历原始数组，逐项处理并汇总结果
+  for (const item of characters) {
+    // 单个处理
+    const processedItem = await processSingleProductItem(item);
+    addData.push(...processedItem); // 合并当前项的处理结果
+  }
 
-//   // 批量入库（仅当 addData 非空时执行）
-//   if (addData.length === 0) {
-//     console.log("无有效处理数据，无需入库");
-//     return { success: true, insertedCount: 0, message: "无数据入库" };
-//   }
+  // 批量入库（仅当 addData 非空时执行）
+  if (addData.length === 0) {
+    console.log("无有效处理数据，无需入库");
+    return { success: true, insertedCount: 0, message: "无数据入库" };
+  }
 
-//   // 写入文件测试 ------- good
-//   const fPath = Path.resolve(__dirname, "./config/testData/charaPhoto_AddProduct_Item.txt")
-//   const productStr = JSON.stringify(addData, null, 2) 
-//   fs.writeFileSync(fPath, productStr)
+  // 写入文件测试 ------- good
+  const fPath = Path.resolve(__dirname, "./config/testData/charaPhoto_AddProduct_Item.txt")
+  const productStr = JSON.stringify(addData, null, 2) 
+  fs.writeFileSync(fPath, productStr)
 
-//   // try {
-//   //   // 批量插入 Products 集合（使用 Mongoose 的 insertMany，其他 ORM 逻辑类似）
-//   //   const insertResult = await Products.insertMany(addData);
-//   //   console.log(`成功入库 ${insertResult.length} 条产品/图片记录`);
-//   //   return {
-//   //     success: true,
-//   //     insertedCount: insertResult.length,
-//   //     insertedIds: insertResult.map(doc => doc._id), // 返回入库后的数据库 ID，便于后续操作
-//   //     message: "批量入库成功"
-//   //   };
-//   // } catch (dbError) {
-//   //   console.error("批量入库 Products 集合失败：", dbError);
-//   //   // 抛出错误，由调用方决定是否重试（如：部分失败可拆分重试）
-//   //   throw new Error("产品数据批量入库失败", { cause: dbError });
-//   // }
-// }
+  try {
+    // 批量插入 Products 集合（使用 Mongoose 的 insertMany，其他 ORM 逻辑类似）
+    const insertResult = await Products.insertMany(addData);
+    console.log(`成功入库 ${insertResult.length} 条产品/图片记录`);
+    return {
+      success: true,
+      insertedCount: insertResult.length,
+      insertedIds: insertResult.map(doc => doc._id), // 返回入库后的数据库 ID，便于后续操作
+      message: "批量入库成功"
+    };
+  } catch (dbError) {
+    console.error("批量入库 Products 集合失败：", dbError);
+    // 抛出错误，由调用方决定是否重试（如：部分失败可拆分重试）
+    throw new Error("产品数据批量入库失败", { cause: dbError });
+  }
+}
 
-// async function processSingleProductItem(item) {
-//   try {
-//     // 步骤1：处理 UUID，转为 8-4-4-4-12 格式 SKU
-//     // （注：若原始 item.uuid 已是十六进制字符串，可去掉 .toString('hex')）
-//     const hexString = item.uuid.toString('hex');
-//     const productSku = [
-//       hexString.slice(0, 8),
-//       hexString.slice(8, 12),
-//       hexString.slice(12, 16),
-//       hexString.slice(16, 20),
-//       hexString.slice(20, 32)
-//     ].join('-');
+async function processSingleProductItem(item) {
+  try {
+    // 步骤1：处理 UUID，转为 8-4-4-4-12 格式 SKU
+    // （注：若原始 item.uuid 已是十六进制字符串，可去掉 .toString('hex')）
+    const hexString = item.uuid.toString('hex');
+    const productSku = [
+      hexString.slice(0, 8),
+      hexString.slice(8, 12),
+      hexString.slice(12, 16),
+      hexString.slice(16, 20),
+      hexString.slice(20, 32)
+    ].join('-');
 
-//     // 步骤2：生成产品记录（1条）
-//     const product = {
-//       paid: true,
-//       sku: productSku,
-//       ts: new Date().getTime(),
-//       price: 100
-//     };
+    // 步骤2：生成产品记录（1条）
+    const product = {
+      paid: true,
+      sku: productSku,
+      ts: new Date().getTime(),
+      price: 100
+    };
 
-//     // 步骤3：生成图片资源记录（item.photos 每类对应1条）
-//     // （修复原函数潜在问题：item.photos 是对象，需先转为键值对数组再遍历，避免 map 报错）
-//     const photosEntries = Object.entries(item.photos); // 转为 [[key1, value1], [key2, value2]] 格式
-//     const photoList = photosEntries.map(([photoType, path], index) => ({
-//       paid: index === 0, // 仅第1张图默认已付费
-//       sku: uuidv4(), // 每类图片生成唯一 SKU
-//       ts: new Date().getTime(),
-//       path: path, // 图片 URL 路径
-//       photoType: photoType, // 新增“图片类型”字段（如 large/small，便于后续筛选，可选）
-//       price: 50
-//     }));
+    // 步骤3：生成图片资源记录（item.photos 每类对应1条）
+    // （修复原函数潜在问题：item.photos 是对象，需先转为键值对数组再遍历，避免 map 报错）
+    const photosEntries = Object.entries(item.photos); // 转为 [[key1, value1], [key2, value2]] 格式
+    const photoList = photosEntries.map(([photoType, path], index) => ({
+      paid: index === 0, // 仅第1张图默认已付费
+      sku: uuidv4(), // 每类图片生成唯一 SKU
+      ts: new Date().getTime(),
+      path: path, // 图片 URL 路径
+      photoType: photoType, // 新增“图片类型”字段（如 large/small，便于后续筛选，可选）
+      price: 50
+    }));
 
-//     // 返回当前项的所有转换结果（1条 product + N条 photo）
-//     return [product, ...photoList];
-//   } catch (error) {
-//     // 单条处理失败：记录错误，返回空数组（避免中断整体流程）
-//     console.error(`处理单条产品数据（UUID: ${item?.uuid || '未知'}）失败：`, error);
-//     return [];
-//   }
-// }
+    // 返回当前项的所有转换结果（1条 product + N条 photo）
+    return [product, ...photoList];
+  } catch (error) {
+    // 单条处理失败：记录错误，返回空数组（避免中断整体流程）
+    console.error(`处理单条产品数据（UUID: ${item?.uuid || '未知'}）失败：`, error);
+    return [];
+  }
+}
 
 
 module.exports = {
   CharacterPhotos,
   PhotosRename,
-  // AddProducts
+  AddProducts
 }
 
 

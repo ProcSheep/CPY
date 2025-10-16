@@ -296,14 +296,13 @@ const handleSingleItem = async(charactors) => {
 
       // 检查图片链接
       console.log("检查图片链接-Start");
-      await checkPhotosUrl(Characters)
+      // await checkPhotosUrl(Characters)
       console.log("检查图片链接-End");
 
       await handleSingleItem(Characters)
 
     } catch (error) {
         console.log(error.message);
-        
     }finally {
         process.exit(1)
     }

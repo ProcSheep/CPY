@@ -10,7 +10,7 @@ const mongoose = require('mongoose');
 // 4. 引入自定义业务函数（updatecharacter3.js）
 const { CharacterPhotos, 
   PhotosRename, 
-  // AddProducts 
+  AddProducts 
 } = require('./updatecharacter3_修改.js');
 
 const app = express()
