@@ -8,7 +8,10 @@ const { establishDbConnection, closeConnection } = require('./config/db.js');
 const mongoose = require('mongoose');
 
 // 4. 引入自定义业务函数（updatecharacter3.js）
-const { CharacterPhotos, PhotosRename, AddProducts } = require('./updatecharacter3.js');
+const { CharacterPhotos, 
+  PhotosRename, 
+  // AddProducts 
+} = require('./updatecharacter3_修改.js');
 
 const app = express()
 const PORT = 4000
@@ -30,11 +33,11 @@ const init = async () => {
     // console.log(result)
 
     // 新的处理方式 （item模式）
-    handleSingleItem(result)
+    await handleSingleItem(result)
 
     // 断开数据库
-    console.log('断开数据库')
-    await closeConnection()
+    // console.log('断开数据库')
+    // await closeConnection()
 
   } catch (error) {
     console.error('init整体抓取的报错信息:', error)

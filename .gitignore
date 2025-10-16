@@ -23,3 +23,7 @@ coverage/
 .vscode/      # VS Code 编辑器
 *.sublime-*   # Sublime Text 编辑器
 .DS_Store     # Mac 系统自动生成的隐藏文件
+
+
+# 图片文件
+/cpy/CPY-main/config/imgDownload/

@@ -9,10 +9,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dayjs": "^1.11.18",
     "express": "^5.1.0",
+    "fs-extra": "^11.3.2",
     "mongoose": "^8.19.1",
     "nodemon": "^3.1.10",
-    "sharp": "^0.34.4",
-    "uuid": "^13.0.0"
+    "sharp": "^0.33.4",
+    "uuid": "^9.0.1"
   }
 }
