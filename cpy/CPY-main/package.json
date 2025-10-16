@@ -1,0 +1,18 @@
+{
+  "name": "cpy",
+  "version": "1.0.0",
+  "description": ".... dont any",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "mongoose": "^8.19.1",
+    "nodemon": "^3.1.10",
+    "sharp": "^0.34.4",
+    "uuid": "^13.0.0"
+  }
+}
