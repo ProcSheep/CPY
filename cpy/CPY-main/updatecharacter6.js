@@ -3,20 +3,7 @@ const Character = require('../models/character.model');
 const Photos = require('../models/ai_photo.model')
 const PhotoAlias = require('../models/photoAlias.model')
 const Products = require('../models/ai_product.model');
-
-// // 1. 引入第三方包（express）
-// const express = require('express');
-// // 2. 引入自定义工具模块（db.js）
-// const { establishDbConnection, closeConnection } = require('./config/db.js');
-// // 3. 引入 mongoose
-// const mongoose = require('mongoose');
-
-// const Photos = require('./models/ai_photos.model.js')
-// const PhotoAlias = require('./models/photoAlias.model.js')
-// const Products = require('./models/ai-product.model.js');
-
 const ImageServices = require('../services/images.service');
-
 const {v4: uuidv4} = require('uuid');
 const fs = require('fs');
 const Path = require('path');
@@ -42,8 +29,6 @@ const processImage = async (key, value) => {
     let result = []
     let photos = Array.isArray(value) ? value : [value]
     for (const photo of photos) {
-        // console.log(photo);
-        
         const img = await ImageServices.download(photo);
         let imgName = photo.split("/").pop().split(".").shift()
         switch (key) {
@@ -301,24 +286,14 @@ const handleSingleItem = async(charactors) => {
 
 (async () => {
     try {
-      // 连接数据库
-      console.log('连接数据库')
-      await establishDbConnection()
-  
-      // 获取test数据库中集合charactors的数据
-      const charactorsCollection = mongoose.connection.db.collection("charactors")
-      // 从集合中全表查询数据 数据是cursor类型, 需要通过toArray转换为可操作的对象数组
-      // 同时返回一个promise对象,所以要异步处理,否则不会获得常规数据,而是一个promise对象
-      const result = await charactorsCollection.find({}).toArray()
-
-      // const Characters = await Character.find({})
+      const Characters = await Character.find({})
 
       // 检查图片链接
       console.log("检查图片链接-Start");
-      // await checkPhotosUrl(Characters)
+      await checkPhotosUrl(Characters)
       console.log("检查图片链接-End");
 
-      await handleSingleItem(result)
+      await handleSingleItem(Characters)
 
     } catch (error) {
         console.log(error.message);
