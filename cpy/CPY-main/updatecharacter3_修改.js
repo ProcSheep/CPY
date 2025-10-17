@@ -118,7 +118,7 @@ const CharacterPhotos = async (CharacterItem) => {
         return acc;
       }, []);
       // console.log(photosList);
-      // await Photos.insertMany(photosList) // ==============================
+      await Photos.insertMany(photosList) // ==============================
 
       console.log("CharacterPhotos函数处理 ---- 成功")
       // 给下一个函数 PhotosRename 用
@@ -209,7 +209,7 @@ const PhotosRename = async (data) => {
         photoList.push(info)
       }
     }
-    // let photosAlias = photoList.filter(res => res.url)
+    let photosAlias = photoList.filter(res => res.url)
 
     // 写入测试
     // const fPath = Path.resolve(__dirname, "./config/testData/charaPhoto_photoAlias_Item.txt")
@@ -217,7 +217,7 @@ const PhotosRename = async (data) => {
     // fs.writeFileSync(fPath, photosAliasListStr)
 
 
-    // await PhotoAlias.insertMany(photosAlias)
+    await PhotoAlias.insertMany(photosAlias)
 
       console.log('PhotoRename函数处理 ---- 成功')
     } catch (error) {

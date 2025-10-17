@@ -56,7 +56,7 @@ const handleSingleItem = async(charactors) => {
         // 执行函数二
         await PhotosRename(charactor_photoList)
         // 执行函数三
-        // const result = await AddProducts(charactor_photoList)
+        const result = await AddProducts(charactor_photoList)
         // console.log('AddProducts:',result)
 
         console.log(`当前测试数据的uuid: ${charactor.uuid}; ---- 成功\n`)
