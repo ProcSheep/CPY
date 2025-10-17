@@ -1,0 +1,9 @@
+your-project/
+├── router/          # 路由层：负责请求分发
+│   └── imgRouter.js # 图片相关路由
+├── controller/      # 控制器层：负责业务逻辑
+│   └── imgController.js # 图片下载控制器
+├── public/          # 静态资源目录：存放待下载的图片
+│   └── images/
+│       └── target-img.png # 要下载的图片
+└── app.js           # 入口文件：启动服务

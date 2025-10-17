@@ -56,8 +56,7 @@ const handleSingleItem = async(charactors) => {
         // 执行函数二
         await PhotosRename(charactor_photoList)
         // 执行函数三
-        const result = await AddProducts(charactor_photoList)
-        // console.log('AddProducts:',result)
+        await AddProducts(charactor)
 
         console.log(`当前测试数据的uuid: ${charactor.uuid}; ---- 成功\n`)
       } catch (error) {
@@ -65,6 +64,7 @@ const handleSingleItem = async(charactors) => {
         console.log(`当前测试数据的uuid: ${charactor.uuid}; ---- 失败\n`)
       }
     }
+    
 }
 
 app.use(express.json())

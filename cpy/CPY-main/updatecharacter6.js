@@ -2,8 +2,8 @@ const ComfyUI = require('../services/aiimages/ComfyUI');
 const Character = require('../models/character.model');
 const Photos = require('../models/ai_photo.model')
 const PhotoAlias = require('../models/photoAlias.model')
-const Products = require('../models/ai_product.model');
 const ImageServices = require('../services/images.service');
+const Products = require('../models/ai_product.model');
 const {v4: uuidv4} = require('uuid');
 const fs = require('fs');
 const Path = require('path');
@@ -29,6 +29,8 @@ const processImage = async (key, value) => {
     let result = []
     let photos = Array.isArray(value) ? value : [value]
     for (const photo of photos) {
+        console.log(photo);
+        
         const img = await ImageServices.download(photo);
         let imgName = photo.split("/").pop().split(".").shift()
         switch (key) {
@@ -47,22 +49,22 @@ const processImage = async (key, value) => {
             case 'photos':
                 // 放大
                 let upscaledUrl = photo
-                try {
-                    upscaledUrl = await ComfyUI.upscaleByUrl(photo)
-                } catch (error) {
-                    upscaledUrl = photo
-                }
+                // try {
+                //     upscaledUrl = await ComfyUI.upscaleByUrl(photo)
+                // } catch (error) {
+                //     upscaledUrl = photo
+                // }
                 // 一倍图
                 const largeUrl = await upscaleByModel(photo, 2)
-                console.log(`one time upscale url: ${largeUrl}`);
+                // console.log(`one time upscale url: ${largeUrl}`);
                 const largeImg = await ImageServices.download(largeUrl);
                 fs.writeFileSync(Path.resolve(__dirname, `../public/photos/${imgName}_large.png`), largeImg)
                 // 二倍图
                 const upscaleUrl = await upscaleByModel(photo, 3)
-                console.log(`two time upscale url: ${upscaleUrl}`);
+                // console.log(`two time upscale url: ${upscaleUrl}`);
                 const upscaledImg = await ImageServices.download(upscaleUrl);
                 fs.writeFileSync(Path.resolve(__dirname, `../public/photos/${imgName}_upscale.png`), upscaledImg)
-                fs.writeFileSync(Path.resolve(__dirname, `../public/photos/${imgName}_upscale.png`), upscaleUrl)
+                // fs.writeFileSync(Path.resolve(__dirname, `../public/photos/${imgName}_upscale.png`), upscaleUrl)
 
                 // 缩小
                 const resizeUrl = await ImageServices.resize(img, 150);
@@ -72,11 +74,11 @@ const processImage = async (key, value) => {
                 fs.writeFileSync(Path.resolve(__dirname, `../public/photos/${imgName}_blur.png`), blurUrl)
 
                 let info = {url: photo, photos: {
-                    large: 'upscaledUrl || photo', 
+                    large: upscaledUrl || photo, 
                     small: `http://192.168.0.133:8800/static/photos/${imgName}_resize.png`, 
                     blur: `http://192.168.0.133:8800/static/photos/${imgName}_blur.png`,
-                    ultra_hd: 'largeUrl',
-                    quality_4k: 'upscaleUrl',
+                    ultra_hd: largeUrl,
+                    quality_4k: upscaleUrl,
                 }}
                 result.push(info)
                 break;
@@ -90,7 +92,7 @@ const CharacterPhotos =  async (CharacterItem) => {
     try {
       let photosList = []
       let data = await Promise.all(['photos', 'cover', 'avatar'].map((key) => processImage(key, CharacterItem[key])))
-      let flattened = data.flat().map(res => ({ ...res, uuid: CharacterItem.uuid.toString('hex'), ts: new Date().getTime() })) 
+      let flattened = data.flat().map(res => ({ ...res, uuid: item.uuid.toString('hex'), ts: new Date().getTime() })) 
       photosList.push(...flattened)
 
       // 没变： 只针对单个用户的数据进行去重与补全
@@ -104,7 +106,6 @@ const CharacterPhotos =  async (CharacterItem) => {
         return acc;
       }, []);
       console.log("CharacterPhotos函数处理 ---- 成功")
-      await Photos.insertMany(photosList) 
 
       // 给下一个函数 PhotosRename 用
       return photosList
@@ -162,80 +163,22 @@ const PhotosRename = async (data) => {
   }
 }
 
-const AddProducts = async (characters) => {
-  // 初始化最终入库数组
-  const addData = [];
-
-  // 遍历原始数组，逐项处理并汇总结果
-  for (const item of characters) {
-    // 单个处理
-    const processedItem = await processSingleProductItem(item);
-    addData.push(...processedItem); // 合并当前项的处理结果
-  }
-
-  // 批量入库（仅当 addData 非空时执行）
-  if (addData.length === 0) {
-    console.log("无有效处理数据，无需入库");
-    return { success: true, insertedCount: 0, message: "无数据入库" };
-  }
-
-  try {
-    // 批量插入 Products 集合（使用 Mongoose 的 insertMany，其他 ORM 逻辑类似）
-    const insertResult = await Products.insertMany(addData);
-    console.log(`成功入库 ${insertResult.length} 条产品/图片记录`);
-    return {
-      success: true,
-      insertedCount: insertResult.length,
-      insertedIds: insertResult.map(doc => doc._id), // 返回入库后的数据库 ID，便于后续操作
-      message: "批量入库成功"
-    };
-  } catch (dbError) {
-    console.error("批量入库 Products 集合失败：", dbError);
-    // 抛出错误，由调用方决定是否重试（如：部分失败可拆分重试）
-    throw new Error("产品数据批量入库失败", { cause: dbError });
-  }
-}
-
-async function processSingleProductItem(item) {
-  try {
-    // 步骤1：处理 UUID，转为 8-4-4-4-12 格式 SKU
-    // （注：若原始 item.uuid 已是十六进制字符串，可去掉 .toString('hex')）
-    const hexString = item.uuid.toString('hex');
-    const productSku = [
-      hexString.slice(0, 8),
-      hexString.slice(8, 12),
-      hexString.slice(12, 16),
-      hexString.slice(16, 20),
-      hexString.slice(20, 32)
-    ].join('-');
-
-    // 步骤2：生成产品记录（1条）
-    const product = {
-      paid: true,
-      sku: productSku,
-      ts: new Date().getTime(),
-      price: 100
-    };
-
-    // 步骤3：生成图片资源记录（item.photos 每类对应1条）
-    // （修复原函数潜在问题：item.photos 是对象，需先转为键值对数组再遍历，避免 map 报错）
-    const photosEntries = Object.entries(item.photos); // 转为 [[key1, value1], [key2, value2]] 格式
-    const photoList = photosEntries.map(([photoType, path], index) => ({
-      paid: index === 0, // 仅第1张图默认已付费
-      sku: uuidv4(), // 每类图片生成唯一 SKU
-      ts: new Date().getTime(),
-      path: path, // 图片 URL 路径
-      photoType: photoType, // 新增“图片类型”字段（如 large/small，便于后续筛选，可选）
-      price: 50
-    }));
-
-    // 返回当前项的所有转换结果（1条 product + N条 photo）
-    return [product, ...photoList];
-  } catch (error) {
-    // 单条处理失败：记录错误，返回空数组（避免中断整体流程）
-    console.error(`处理单条产品数据（UUID: ${item?.uuid || '未知'}）失败：`, error);
-    return [];
-  }
+const AddProducts = async (charactersItem) => {
+    try {
+      let addData = []
+      console.log('uuid',charactersItem.uuid)
+      const hexString = charactersItem.uuid.toString('hex')
+      const sku = [ hexString.slice(0, 8), hexString.slice(8, 12), hexString.slice(12, 16), hexString.slice(16, 20), hexString.slice(20, 32) ].join('-');
+      let product = [{paid: true, sku, ts: new Date().getTime(), price: 100}]
+      addData.push(product)
+      let photo = charactersItem.photos.map((res, index) => ({paid: index==0, sku: uuidv4(), ts: new Date().getTime(), path: res, price: 50}))
+      addData = [...addData, ...photo]
+      if (addData.length) {
+        await Products.insertMany(addData)
+      }
+    } catch (error) {
+      throw new Error('AddProducts函数报错', {cause: error})
+    }
 }
 
 // 新增utils工具函数
@@ -272,8 +215,7 @@ const handleSingleItem = async(charactors) => {
         // 执行函数二
         await PhotosRename(charactor_photoList)
         // 执行函数三
-        const result = await AddProducts(charactor_photoList)
-        // console.log('AddProducts:',result)
+        await AddProducts(charactor)
         console.log(`当前测试数据的uuid: ${charactor.uuid}; ---- 成功\n`)
 
       } catch (error) {
@@ -290,14 +232,13 @@ const handleSingleItem = async(charactors) => {
 
       // 检查图片链接
       console.log("检查图片链接-Start");
-      await checkPhotosUrl(Characters)
+      // await checkPhotosUrl(Characters)
       console.log("检查图片链接-End");
 
       await handleSingleItem(Characters)
 
     } catch (error) {
         console.log(error.message);
-        
     }finally {
         process.exit(1)
     }

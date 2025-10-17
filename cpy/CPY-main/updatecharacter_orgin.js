@@ -155,6 +155,7 @@ const PhotosRename = async () => {
     let photosAlias = photoList.filter(res => res.url)
     await PhotoAlias.insertMany(photosAlias)
 }
+
 const AddProducts = async (characters) => {
     const addData = characters.reduce( (arr, item) => {
         const hexString =  item.uuid.toString('hex');
