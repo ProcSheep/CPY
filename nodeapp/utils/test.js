@@ -41,6 +41,7 @@
  * 2.重定向， 根据返回response的301 302 ， 一般来说会重新在 response.localtion.href 返回给你
  * 3.请求错误 监听error / 请求超时 10s 主动停止请求 abrout / 最后成功的话，request.end()
  */
+const { createWriteStream } = require('fs')
 const https = require('https')
 const Path = require('path')
 const imgUrl = new URL("https://picsum.photos/id/237/800/600")
@@ -110,8 +111,21 @@ async function downloadImageWithRedirect(imageUrl, saveDir, fileName, redirectCo
         }
 
         // 开始读写流
+        const writeFileStream = createWriteStream(saveDir)
+        response.pipe(writeFileStream)
 
+        writeFileStream.on('finish', ()=> {
+          writeFileStream.close() // 关闭流
+          resolve({
+            success: true,
+            message: `图片成功存储在${saveDir}`,
+            imgUrl
+          })
+        })
 
+        writeFileStream.on('error', () => {
+          
+        })
         
 
       }))

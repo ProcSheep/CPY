@@ -83,12 +83,13 @@ module.exports = async function downloadImageWithRedirect(imageUrl, saveDir, fil
                     return;
                 }
 
-                const fileStream = fs.createWriteStream(savePath);
-                // pipe拷贝 ，把response写入fileStream ？ 
+                // 创建可写流，参数为保存文件地址
+                const fileStream = fs.createWriteStream(savePath); 
+                // 返回数据为可读流，把可读流写入可写流
                 response.pipe(fileStream);
 
                 fileStream.on('finish', () => {
-                    fileStream.close();
+                    fileStream.close(); // 关闭
                     resolve({
                         success: true,
                         message: `图片已保存到: ${savePath}`,
@@ -98,6 +99,7 @@ module.exports = async function downloadImageWithRedirect(imageUrl, saveDir, fil
                 });
 
                 fileStream.on('error', (err) => {
+                    // 删除文件， 对删除文件不做操作
                     fs.unlink(savePath, () => {});
                     resolve({
                         success: false,
