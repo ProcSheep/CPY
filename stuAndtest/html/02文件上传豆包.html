@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>拖拽上传文件/文件夹</title>
+    <style>
+        .upload-container {
+            width: 600px;
+            height: 300px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .upload-container.active {
+            border-color: #4285f4;
+            background-color: rgba(66, 133, 244, 0.1);
+        }
+        .upload-container h3 {
+            margin-top: 80px;
+            color: #333;
+        }
+        .upload-container p {
+            color: #666;
+            margin: 10px 0 20px;
+        }
+        #fileList {
+            width: 600px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .file-item {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 拖拽上传区域 -->
+    <div class="upload-container" id="dropArea">
+        <h3>拖拽文件或文件夹到此处上传</h3>
+        <p>或 <label for="fileInput" style="color: #4285f4; cursor: pointer;">点击选择文件/文件夹</label></p>
+        <input type="file" id="fileInput" webkitdirectory directory multiple style="display: none;">
+    </div>
+
+    <!-- 显示上传的文件列表 -->
+    <div id="fileList"></div>
+
+    <script>
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+
+        // 1. 处理拖拽相关事件
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        // 阻止默认行为（避免浏览器自动打开文件）
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // =======================================
+        // 2. 拖拽进入/悬停时添加样式
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+
+        // 拖拽离开/放下时移除样式
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() {
+            dropArea.classList.add('active');
+        }
+
+        function unhighlight() {
+            dropArea.classList.remove('active');
+        }
+        // =======================================
+
+        // 3. 处理文件放下事件（核心逻辑）
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files; // 获取拖拽的文件/文件夹
+            console.log(dt,files)
+            handleFiles(files); // 处理文件列表
+        }
+
+        // 4. 处理手动选择文件/文件夹（与拖拽共用处理逻辑）
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        // 5. 处理文件列表（显示信息 + 上传准备）
+        function handleFiles(files) {
+            if (files.length === 0) return;
+
+            fileList.innerHTML = ''; // 清空列表
+
+            // 遍历所有文件（包括文件夹内的子文件）
+            Array.from(files).forEach(file => {
+                // 显示文件信息
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                // webkitRelativePath 用于显示文件夹内文件的相对路径
+                fileItem.innerHTML = `
+                    <p>名称：${file.name}</p>
+                    <p>路径：${file.webkitRelativePath || '无（单个文件）'}</p>
+                    <p>大小：${formatFileSize(file.size)}</p>
+                `;
+                fileList.appendChild(fileItem);
+            });
+
+            // 调用上传函数（实际项目中根据需求触发，例如延迟上传或手动点击上传按钮）
+            // uploadFiles(files);
+        }
+
+        // 辅助函数：格式化文件大小（B -> KB/MB）
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // 6. 文件上传到服务器（示例）
+        function uploadFiles(files) {
+            const formData = new FormData();
+
+            // 追加所有文件到 FormData（保留相对路径）
+            Array.from(files).forEach(file => {
+                // 第三个参数是文件在服务器的路径（基于文件夹结构）
+                formData.append('files[]', file, file.webkitRelativePath || file.name);
+            });
+
+            // 发送请求到后端
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('上传成功', data);
+                alert('所有文件上传成功！');
+            })
+            .catch(error => {
+                console.error('上传失败', error);
+                alert('上传失败，请重试！');
+            });
+        }
+    </script>
+</body>
+</html>
