@@ -11,10 +11,6 @@ const http = require('http');
  * @param {number} redirectCount - 已重定向次数
  */
 module.exports = async function downloadImageWithRedirect(imageUrl, saveDir, fileName, redirectCount = 0) {
-  // console.log(imageUrl)
-  // console.log(saveDir)
-  // console.log(fileName)
-  // console.log(redirectCount)
     try {
         if (redirectCount > 3) {
             // 失败时返回包含URL的错误信息
@@ -99,8 +95,8 @@ module.exports = async function downloadImageWithRedirect(imageUrl, saveDir, fil
                 });
 
                 fileStream.on('error', (err) => {
-                    // 删除文件， 对删除文件不做操作
-                    fs.unlink(savePath, () => {});
+                    // 删除文件， 对删除文件不做操作, 回调函数是异步的， 操作删除文件
+                    fs.unlink(savePath, (err) => { console.err('删除失败',err) });
                     resolve({
                         success: false,
                         message: `写入文件失败: ${err.message}`,
@@ -120,7 +116,7 @@ module.exports = async function downloadImageWithRedirect(imageUrl, saveDir, fil
             });
 
             request.setTimeout(10000, () => {
-                request.abort();
+                request.destroy();
                 resolve({
                     success: false,
                     message: '请求超时（超过10秒）',
