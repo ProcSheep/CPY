@@ -447,7 +447,163 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
 
 
 # node-fs
-## 读写
+## 创建与读写
+- 中游文件夹的自动创建
+  ```js
+    /** 问题1&2
+     * 文件夹的创建(默认中间路径不自动创建), 但是文件可以
+     * 文件夹路径的获取
+    */
+    const fPath = path.resolve(__dirname, './config/testData/student.txt')
+
+    // 可以获取文件夹的路径部分,实际就是删除最后一部分(/student.txt)
+    const pathDir = path.dirname(fPath)
+
+    // recursive: 异步创建文件夹,如果路径中包含不存在的父级目录，会自动创建所有缺失的目录
+    // 不会重复创建文件夹
+    fs.mkdirSync(pathDir, { recursive: true })
+  ```
+  > 拓展：`path.join(a,b,c)`,单纯的字符串拼接`a/b/c`，可以没有绝对路径（__dirname），但是`path.resolve`,总会以当前文件的绝对路径为基准进行拼接，实际使用区别不大
+- 存入数据进入文件夹
+  ```js
+    /** 
+     * 存入数据格式
+     * info: 字符串 Buffer Uint8Array
+    */
+
+    const stu1 = '字符串: 小明'
+
+    const stu2 = {
+      name: "小明"
+    }
+    const stu2Str = JSON.stringify(stu2, null, 2) // 参数： 要被转化内容, 筛选条件(可选,没有就写null占位), 缩进格式
+
+    const stu3 = ["小明"]
+    const stu3Str = JSON.stringify(stu3, null, 2)
+
+    fs.writeFileSync(fPath, stu1, { flag: 'a' }) // 追加
+    fs.writeFileSync(fPath, stu2Str, { flag: 'a' })
+    fs.writeFileSync(fPath, stu3Str, { flag: 'a' })
+  ```
+- 写入数据进入文件的总结:
+  ```js
+    /**
+      * 1.指定文件路径
+      * 2.获取文件夹路径
+      * 3.检测文件夹路径是否都被创建
+      * 4.传入数据(针对对象和数组要JSON转化)
+      * 
+      * 注意: 文件操作是异步操作,所以最好try-catch
+    */
+  ```
+- 读取文本
+  ```js
+    /**
+     * 设置格式utf-8,会作为纯字符串输出, 否则格式为Buffer
+     * 对单一的数据(对象/字符串) 读取后正常使用需要JSON解析 JSON.parse()
+    */
+    const res = fs.readFileSync(fPath, 'utf-8')
+    console.log(JSON.parse(res))
+  ```
+
+
+# node-express
+## multer命名
+- multer是上传文件的第三方包，比如`multer.array(xxx)`和`multer.single(xxx)`; 这个命名取决于表单上传时的命名，如下
+  | 位置 | 代码示例 | 说明 |
+  | --- | --- | --- |
+  | 前端 | FormData	formData.append('files', file) | 给每个文件绑定键名 'files' |
+  | 后端 | multer 中间件	upload.array('files') | 告诉 multer：「提取键名为 'files' 的所有文件」 |
+  | 后端控制器 | req.files	multer | 会自动将提取到的文件数组，挂载到 req.files（固定属性名，由 multer 约定） |
+  > ==1.这三处的键名必须一致，否则无法找到对应存储的文件==
+  > ==2.formData类型的数据无法直接打印==，需要entries转化 `for(const {key,value} of formData.entries)`， 对象也可以这样迭代成键值对 `Object.entries(obj)`
+- 2.不同的文件数量上传
+  - 2.1 `multer.single(xxx, maxCount)` 多文件,可选最大数量
+  - 2.2 `multer.array(xxx)` 单文件
+  - 2.3 `multer.field([ name: key, maxCount: x ], [....])` 多文件，不同键名
+ 	
+## req与res
+- ==Express 路由中所有中间件（包括全局中间件、路由中间件、控制器）接收的 req 和 res 都是同一个实例==—— 整个请求生命周期内，req 和 res 不会被重新创建，只会被持续传递和修改。**中间件之间的信息传递就依靠req和res进行传递**
+>
+- ==一个请求从发送到服务器，到最终返回响应，会经历以下流程==
+  - 浏览器发送请求 → 服务器创建 1 个 req 对象（存储请求信息）和 1 个 res 对象（用于构建响应）；
+  - 这两个对象会按「中间件顺序」依次传递给每一个中间件（全局 → 路由 → 控制器）；
+  - 所有中间件都可以读写 req 和 res 的属性（比如给 req 加自定义数据，给 res 加响应头）；
+  - 最终，res 对象携带所有中间件设置的信息（响应头、业务数据等）返回给前端。
+    > 简单说：req 和 res 是请求的「专属容器」，从请求开始到结束，全程复用同一个实例。
+
+- ==req与res的作用==
+	- ==req 负责「接收和解析前端的请求数据」（比如参数、文件、请求头）==
+      - 基础的req.query/params/body的数据获取,常规req.method,req.url, 特殊的multer比如req.files(根据键名确定，非固定)
+      - token的获取, req.headers.authorization
+      - 信息传递，自定义req.username = username,在下一个中间件使用
+  - ==res 负责「构建和返回给前端的响应结果」（比如数据、状态码、响应头）==
+    - 设置跨域: res.setHeaders
+    - 设置状态码/返回值：res.status(200) , res.json() / res.send()
+    - 直接结束请求： res.end() 没有返回
+    - 额外的： 重定向res.redirect(url)
+    > 注意： 如果一个http请求没有设置任何的res来返回信息或者结束，那么这个http将会一直占用服务器，不会结束
+- 总结：
+  - req 是「输入工具」：负责接收前端请求数据，传递中间件加工后的信息（如解析后的用户数据、文件信息）；
+  - res 是「输出工具」：负责设置响应规则（头信息、状态码），返回最终处理结果给前端；
+## 跨域补充
+- ==在node后端中设置res跨域时的问题: 为什么是res而不是req呢？==
+- 跨域拦截： 浏览器会先发送请求到后端（后端能正常收到并处理），但在将响应返回给前端之前，会主动校验后端返回的响应头；如果响应头中没有包含「允许当前前端域名访问」的标识，浏览器会拦截响应，不让前端读取数据（前端会看到 CORS 错误）， ==总结为请求会正常请求，但是返回信息给浏览器时，浏览器会检查此次请求是否跨域，这个取决于服务器返回的res，所以设置跨域操作是在res上而不是req上, **跨域限制的核心是浏览器的 “响应拦截”，而非 “请求拦截”（请求本身能正常发到后端）, 浏览器校验的是后端返回的响应头，而不是前端发送的请求头（即使前端在 req 中添加跨域标识，浏览器也不认,**== 比如：前端强行在请求头中添加 Access-Control-Allow-Origin，浏览器会直接忽略这个头，因为跨域校验的是后端返回的响应头，而非前端发送的请求头
+
+## express的默认
+- ==一个express后端路由的常见默认,按照顺序==
+  ```js
+    const app = express()
+    const PORT = 4000
+
+    // 全局中间件：跨域处理
+    app.use(corsMiddleware);
+
+    // 重要的中间件
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: false }));
+
+    // 注册路由
+    app.use(imageRouter)
+    app.use(uploadRouter)
+    app.use('/test',testRouter)
+
+    // 未匹配路由处理（404错误）
+    app.use((req, res, next) => {
+      // 当请求的路由未被任何已注册的路由匹配时，会进入这里
+      const error = new Error(`未找到请求的路由: ${req.method} ${req.originalUrl}`);
+      error.statusCode = 404; // 标记为404错误
+      next(error); // 传递给全局错误处理中间件
+    });
+
+    // 全局错误处理中间件
+    app.use((err, req, res, next) => {
+      console.error('服务器错误：', err);
+      res.status(500).json({
+        code: 500,
+        message: '服务器内部错误',
+        error: err.message
+      });
+    });
+
+    app.listen(PORT, () => {
+      console.log(`后端运行: http://localhost:${PORT}`)
+    })
+  ```
+- 1.`express.json()`和`express.urlencoded()`
+  - ==app.use(express.json())==
+    - 功能：==解析JSON 格式的请求体==。
+    - 适用场景：当客户端发送的请求头中包含 Content-Type: application/json 时（通常是前端通过 fetch、axios 等工具发送 JSON 数据），该中间件会自动将请求体中的 JSON 字符串解析为 JavaScript 对象，并挂载到 req.body 上。
+    > ==主要是别忘记，前后端交互处理数据都是JSON字符串格式，前端传给node后端都是JSON字符串，没有express.json()处理JSON字符串变为对象格式，后端无法操作任何数据==
+  - ==app.use(express.urlencoded({ extended: false }))==
+    - 功能：==解析表单格式的请求体（application/x-www-form-urlencoded）==。
+    - 适用场景：当客户端通过 HTML 表单提交数据（默认 method="POST" 时），或请求头为 Content-Type: application/x-www-form-urlencoded 时（如表单提交、某些 API 工具模拟表单数据），该中间件会解析请求体中的键值对（如 name=张三&age=20），并转换为 JavaScript 对象挂载到 req.body 上。
+    - 关于 extended: false：不支持表单嵌套
+      - false：使用 Node 内置的 querystring 模块解析，只能处理简单的键值对（不支持嵌套对象）。
+      - true：使用第三方 qs 模块解析，支持嵌套对象（如 user[name]=张三&user[age]=20 可解析为 { user: { name: '张三', age: 20 } }）。通常设置为 false 即可满足大多数简单表单场景，若需要处理复杂嵌套数据，可设为 true。
+- ==2.路由处理和错误处理== 
+  - 路由出错： 当上面的路由都没有匹配时，进入这个中间件，然后报错, `next()`是进入下一个中间夹，`next(err)`是进入全局处理错误中间件，同时把错误信息err传递过去
+  - 全局错误处理中间件： 固定写法，收集全局的错误处理，传递方式就是`next(err)`
 
 
 
