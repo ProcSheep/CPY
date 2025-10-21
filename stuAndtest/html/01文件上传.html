@@ -27,7 +27,6 @@
   <div class="container">
     拖拽文件到这里上传
   </div>
-  <button onclick="uploadFiles">上传</button>
 
 
   <script>
@@ -35,7 +34,7 @@
     // 获取所有文件
     let formData = new FormData()
 
-    const evt = ['dragenter', 'dragover', 'dragleave', 'drop']
+    const evt = ['dragenter', 'dragover', 'dragleave', 'drop', 'dragend']
     evt.forEach(eventName => {
       dropArea.addEventListener(eventName, preventDefaults, false);
     });
@@ -69,48 +68,62 @@
     // 处理文件放下事件
     dropArea.addEventListener("drop", handleDrop, false)
 
-    function handleDrop(e) {
-      // 内部所有属性打印不出来, 因为是惰性初始化,访问到时才会显示,打印只能打印初始化后的数据
-      // console.log(e.dataTransfer.files)
+    // 修改traverseFileTree为返回Promise
+    function traverseFileTree(entry) {
+      return new Promise((resolve, reject) => {
+        if (entry.isDirectory) {
+          const reader = entry.createReader();
+          reader.readEntries((entries) => {
+            Promise.all(entries.map(e => traverseFileTree(e))).then(resolve).catch(reject);
+          }, reject);
+        } else {
+          entry.file(file => {
+            formData.append('files', file);
+            resolve();
+          }, reject);
+        }
+      });
+    }
 
-      const items = e.dataTransfer.items
+    // 在handleDrop中等待文件处理完成
+    async function handleDrop(e) {
+      formData = new FormData(); // 清空之前的文件
+      const items = e.dataTransfer.items;
+      const promises = [];
       for (const item of items) {
-        // 获取文件详细信息的方法 FileEntry
-        const entry = item.webkitGetAsEntry()
-        traverseFileTree(entry)
+        const entry = item.webkitGetAsEntry();
+        promises.push(traverseFileTree(entry));
       }
+      await Promise.all(promises); // 等待所有文件处理完毕
 
+      // 数组/对象都可以迭代打印，没有必要是因为js自动toString转化了
       for (const [key, value] of formData.entries()) {
         console.log(`键：${key}，值：`, value);
       }
 
-    }
+      
+      await uploadFiles();
+      // debugger 防止删除
 
-    // 递归处理所有文件
-    function traverseFileTree(entry) {
-      // 文件夹需要递归成文件
-      if (entry.isDirectory) { // EntryDirectory
-        // 文件夹继续遍历子项
-        const reader = entry.createReader()
-        reader.readEntries((entries) => {
-          entries.forEach(entry => traverseFileTree(entry))
-        })
-      } else {
-        // EntryFile , 获取文件的方法
-        entry.file(file => {
-          formData.append('files', file)
-        })
-      }
     }
 
     async function uploadFiles() {
       try {
-        const response = await fetch('http://localhost:4000/upload', { // 新增 /api 前缀
+        // 关键：手动设置multipart/form-data头（需保留boundary）
+        const contentType = formData.getHeaders ? formData.getHeaders()['Content-Type'] : `multipart/form-data; boundary=${formData._boundary}`;
+        console.log(contentType)
+        
+        const response = await fetch('http://localhost:4000/uploadArray', {
           method: 'POST',
           body: formData
         });
+
+        // 新增：打印响应状态和内容（确认请求成功）
+        console.log('响应状态:', response.status);
+        const result = await response.json();
+        console.log('上传结果:', result);
       } catch (error) {
-        console.log('上传失败', error)
+        console.log('上传失败', error);
       }
     }
 

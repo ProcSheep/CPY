@@ -58,10 +58,31 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+            margin-bottom: 10px; /* 增加底部间距 */
         }
 
         .change-model-btn:hover {
             background-color: #2563eb;
+        }
+
+        /* 新增提示词按钮样式 */
+        .add-prompt-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #10b981;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .add-prompt-btn:hover {
+            background-color: #059669;
         }
 
         .history-section {
@@ -166,6 +187,13 @@
             margin-left: auto;
         }
 
+        /* 新增系统提示消息样式 */
+        .message.system {
+            max-width: 90%;
+            margin-left: 0;
+            margin-right: 0;
+        }
+
         .message-content {
             padding: 12px 16px;
             border-radius: 18px;
@@ -183,6 +211,15 @@
             color: #111827;
             border: 1px solid #e5e7eb;
             border-bottom-left-radius: 4px;
+        }
+
+        /* 系统提示消息样式 */
+        .system .message-content {
+            background-color: #f0fdf4;
+            color: #065f46;
+            border: 1px solid #dcfce7;
+            border-radius: 8px;
+            font-style: italic;
         }
 
         .input-area {
@@ -294,7 +331,7 @@
             color: #4b5563;
         }
 
-        .form-input {
+        .form-input, .form-textarea {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #d1d5db;
@@ -302,7 +339,13 @@
             font-size: 16px;
         }
 
-        .form-input:focus {
+        /* 提示词文本域样式 */
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .form-input:focus, .form-textarea:focus {
             outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
@@ -380,6 +423,10 @@
             <div id="current-model" class="value">default</div>
             <button id="change-model-btn" class="change-model-btn">
                 <span>更改模型</span>
+            </button>
+            <!-- 新增添加提示词按钮 -->
+            <button id="add-prompt-btn" class="add-prompt-btn">
+                <span>添加提示词</span>
             </button>
         </div>
         
@@ -471,8 +518,28 @@
         </div>
     </div>
 
-    <script>
+    <!-- 新增提示词弹窗 -->
+    <div id="prompt-modal" class="modal-overlay">
+        <div class="modal">
+            <h3 class="modal-title">添加系统提示词</h3>
+            <form id="prompt-form">
+                <div class="form-group">
+                    <label class="form-label" for="prompt-input">提示词内容</label>
+                    <textarea 
+                        id="prompt-input" 
+                        class="form-textarea"
+                        placeholder="请输入系统提示词，这将指导AI的回答风格和行为..."
+                    ></textarea>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" id="cancel-prompt" class="modal-btn cancel-btn">取消</button>
+                    <button type="submit" class="modal-btn confirm-btn">确认添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
+    <script>
 
   
   // 数据管理模块
@@ -534,7 +601,7 @@
       },
       
       // 添加消息到当前对话
-      addMessage(content, isUser = true) {
+      addMessage(content, isUser = true, isSystem = false) {
           const chatId = localStorage.getItem('ai_current_chat_id');
           const history = this.getChatHistory();
           
@@ -543,12 +610,36 @@
                   id: Date.now().toString(),
                   content,
                   isUser,
+                  isSystem, // 新增系统消息标识
                   timestamp: new Date().toISOString()
               };
               
               history[chatId].messages.push(message);
               localStorage.setItem('ai_chat_history', JSON.stringify(history));
               return message;
+          }
+          return null;
+      },
+      
+      // 添加系统提示词到当前对话开头
+      addSystemPrompt(content) {
+          const chatId = localStorage.getItem('ai_current_chat_id');
+          const history = this.getChatHistory();
+          
+          if (history[chatId]) {
+              // 创建系统提示消息
+              const promptMessage = {
+                  id: Date.now().toString(),
+                  content,
+                  isUser: false,
+                  isSystem: true,
+                  timestamp: new Date().toISOString()
+              };
+              
+              // 将提示词添加到消息数组的开头
+              history[chatId].messages.unshift(promptMessage);
+              localStorage.setItem('ai_chat_history', JSON.stringify(history));
+              return promptMessage;
           }
           return null;
       },
@@ -623,11 +714,16 @@
           this.renameChatId = document.getElementById('rename-chat-id');
           this.renameForm = document.getElementById('rename-form');
 
+          // 新增提示词相关元素
+          this.promptModal = document.getElementById('prompt-modal');
+          this.promptInput = document.getElementById('prompt-input');
+          this.promptForm = document.getElementById('prompt-form');
+
           // 删除
-        this.deleteModal = document.getElementById('delete-modal');
-        this.confirmDeleteBtn = document.getElementById('confirm-delete');
-        this.cancelDeleteBtn = document.getElementById('cancel-delete');
-        this.deleteChatId = document.getElementById('delete-chat-id');
+          this.deleteModal = document.getElementById('delete-modal');
+          this.confirmDeleteBtn = document.getElementById('confirm-delete');
+          this.cancelDeleteBtn = document.getElementById('cancel-delete');
+          this.deleteChatId = document.getElementById('delete-chat-id');
           
           this.loadEventListeners();
           this.renderModelSettings();
@@ -697,44 +793,63 @@
               }
           });
 
+          // 新增提示词按钮事件
+          document.getElementById('add-prompt-btn').addEventListener('click', () => {
+              this.promptInput.value = ''; // 清空输入框
+              this.promptModal.classList.add('active'); // 显示弹窗
+          });
+
+          // 取消添加提示词
+          document.getElementById('cancel-prompt').addEventListener('click', () => {
+              this.promptModal.classList.remove('active');
+          });
+
+          // 提交提示词
+          this.promptForm.addEventListener('submit', (e) => {
+              e.preventDefault();
+              const promptContent = this.promptInput.value.trim();
+              
+              if (promptContent) {
+                  // 添加系统提示词到当前对话开头
+                  const promptMessage = ChatData.addSystemPrompt(promptContent);
+                  this.renderCurrentChat(); // 重新渲染当前对话以显示提示词
+                  this.promptModal.classList.remove('active');
+              }
+          });
+
           // 回车发送消息
-            // 监听输入框的回车键事件
-            this.userInput.addEventListener('keydown', (e) => {
-                // 当按下Enter键且没有按住Shift键时
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault(); // 阻止默认换行行为
-                    this.chatForm.dispatchEvent(new Event('submit')); // 触发表单提交
-                }
-            });
+          this.userInput.addEventListener('keydown', (e) => {
+              // 当按下Enter键且没有按住Shift键时
+              if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault(); // 阻止默认换行行为
+                  this.chatForm.dispatchEvent(new Event('submit')); // 触发表单提交
+              }
+          });
 
-        // 取消删除
-        this.cancelDeleteBtn.addEventListener('click', () => {
-            this.deleteModal.classList.remove('active');
-        });
-        
-        // 确认删除
-        this.confirmDeleteBtn.addEventListener('click', () => {
-            const chatId = this.deleteChatId.value;
-            if (chatId) {
-                ChatData.deleteChat(chatId);
-                this.renderHistoryList();
-                this.renderCurrentChat();
-                this.deleteModal.classList.remove('active');
-            }
-        });
-
-        
-
-
+          // 取消删除
+          this.cancelDeleteBtn.addEventListener('click', () => {
+              this.deleteModal.classList.remove('active');
+          });
+          
+          // 确认删除
+          this.confirmDeleteBtn.addEventListener('click', () => {
+              const chatId = this.deleteChatId.value;
+              if (chatId) {
+                  ChatData.deleteChat(chatId);
+                  this.renderHistoryList();
+                  this.renderCurrentChat();
+                  this.deleteModal.classList.remove('active');
+              }
+          });
       },
 
 
     sendMessage(content) {
-        // 添加用户消息（这部分 content 传递正确）
+        // 添加用户消息
         const userMessage = ChatData.addMessage(content, true);
         this.addMessageToUI(userMessage);
         
-        // AI回复（修正异步处理）
+        // AI回复
         this.sendMessageToOpenAI(content).then(res => {
             const aiMessage = ChatData.addMessage(res.content, false);
             this.addMessageToUI(aiMessage);
@@ -754,42 +869,36 @@
             console.log('当前使用的供应商:', provider);
 
             // 获取上下文对话
-            // 获取上下文对话（修正部分）
             const historyChatStr = localStorage.getItem("ai_chat_history");
             const allChats = JSON.parse(historyChatStr); // 所有对话的集合
             const currentChatId = localStorage.getItem('ai_current_chat_id'); // 当前对话ID
             const currentChat = allChats[currentChatId]; // 获取当前对话
             
-            
             // 构建消息数组（包含历史消息和新消息）
             const messages = currentChat ? [...currentChat.messages] : [];
             // 按照API要求的格式转换消息
             const formattedMessages = messages.map(msg => ({
-                role: msg.isUser ? "user" : "assistant",
+                role: msg.isSystem ? "system" : (msg.isUser ? "user" : "assistant"),
                 content: msg.content
             }));
 
-            // 添加当前新消息, 已经添加，无需再加
-            // formattedMessages.push({ role: "user", content: content });
-            
             console.log('发送的消息历史:', formattedMessages);
 
             // 发送请求
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: { 
+                    // deepseek-free
                     "Authorization": "Bearer ...", // tok
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     "model": "mistralai/mistral-nemo",
-                    // 只有当provider不为空时才传递provider参数（可选优化）
+                    // 只有当provider不为空时才传递provider参数
                     ...(provider && { 
                         "provider": { "order": [provider] } 
                     }),
-                    "messages": [
-                        { "role": "user", "content": formattedMessages }
-                    ]
+                    "messages": formattedMessages
                 })
             });
 
@@ -801,7 +910,7 @@
                 throw new Error(`接口错误: ${data.error?.message || '未知错误'}`);
             }
 
-            // 核心逻辑：如果原始provider为空字符串，且接口返回了provider，则更新本地存储
+            // 如果原始provider为空字符串，且接口返回了provider，则更新本地存储
             if (provider === "" && data.provider) {
                 // 更新modelSetting中的provider
                 modelSetting.provider = data.provider;
@@ -825,20 +934,25 @@
       // 添加消息到UI
       addMessageToUI(message) {
           const messageDiv = document.createElement('div');
-          messageDiv.className = `message ${message.isUser ? 'user' : 'ai'}`;
+          // 根据消息类型设置不同的类名
+          if (message.isSystem) {
+              messageDiv.className = 'message system';
+          } else {
+              messageDiv.className = `message ${message.isUser ? 'user' : 'ai'}`;
+          }
           
           const contentDiv = document.createElement('div');
           contentDiv.className = 'message-content';
           contentDiv.textContent = message.content;
 
           // 只在AI消息下方添加模型和运营商信息
-            if (!message.isUser) {
-                const settings = ChatData.getModelSettings();
-                const metaDiv = document.createElement('div');
-                metaDiv.className = 'message-meta';
-                metaDiv.textContent = `模型: ${settings.model} | 运营商: ${settings.provider}`;
-                messageDiv.appendChild(metaDiv);
-            }
+          if (!message.isUser && !message.isSystem) {
+              const settings = ChatData.getModelSettings();
+              const metaDiv = document.createElement('div');
+              metaDiv.className = 'message-meta';
+              metaDiv.textContent = `模型: ${settings.model} | 运营商: ${settings.provider}`;
+              messageDiv.appendChild(metaDiv);
+          }
           
           messageDiv.appendChild(contentDiv);
           this.chatContainer.appendChild(messageDiv);
@@ -914,9 +1028,8 @@
                     this.deleteModal.classList.add('active');
                 });
                 
-                // 正确的顺序：先添加名称，再添加删除按钮，最后添加重命名按钮
                 li.appendChild(nameSpan);
-                li.appendChild(deleteBtn);  // 关键修复：添加删除按钮到DOM
+                li.appendChild(deleteBtn);
                 li.appendChild(renameBtn);
                 
                 li.addEventListener('click', () => {
@@ -929,8 +1042,6 @@
             });
         },
       
-      
-
       // 渲染模型设置
       renderModelSettings() {
           const settings = ChatData.getModelSettings();

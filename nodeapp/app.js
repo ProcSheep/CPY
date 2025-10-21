@@ -4,7 +4,8 @@ const corsMiddleware = require('./middleware/corsMiddleware')
 // router 
 // const studentRouter = require('./routes/student.router')
 const imageRouter = require('./routes/image.router')
-const uploadRoutes = require('./routes/uploadRoutes')
+const uploadRouter = require('./routes/upload.router')
+const testRouter = require('./routes/test.router')
 
 const app = express()
 const PORT = 4000
@@ -22,7 +23,8 @@ app.use(express.urlencoded({ extended: false }));
 // 注册
 // app.use(studentRouter)
 app.use(imageRouter)
-app.use(uploadRoutes)
+app.use(uploadRouter)
+app.use('/test',testRouter)
 
 
 // 全局错误处理中间件
