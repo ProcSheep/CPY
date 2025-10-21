@@ -9,8 +9,8 @@ const imgUrlList = [
 const fPath = Path.join(__dirname, "../public/imgDownload")
 // 数组的方式进行下载 [url1,url2, ...]
 module.exports = {
-  async imgDownload(req,res,next){
-    imgUrlList.forEach((imgUrl,index) => imgDownload(imgUrl,fPath,`img${index}.jpg`))
+  async imgDownload(req, res, next) {
+    imgUrlList.forEach((imgUrl, index) => imgDownload(imgUrl, fPath, `img${index}.jpg`))
 
     res.end()
   }
