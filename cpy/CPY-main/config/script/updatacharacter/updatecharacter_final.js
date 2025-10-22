@@ -92,7 +92,7 @@ const CharacterPhotos =  async (CharacterItem) => {
     try {
       let photosList = []
       let data = await Promise.all(['photos', 'cover', 'avatar'].map((key) => processImage(key, CharacterItem[key])))
-      let flattened = data.flat().map(res => ({ ...res, uuid: item.uuid.toString('hex'), ts: new Date().getTime() })) 
+      let flattened = data.flat().map(res => ({ ...res, uuid: CharacterItem.uuid.toString('hex'), ts: new Date().getTime() })) 
       photosList.push(...flattened)
 
       // 没变： 只针对单个用户的数据进行去重与补全
@@ -106,7 +106,7 @@ const CharacterPhotos =  async (CharacterItem) => {
         return acc;
       }, []);
       console.log("CharacterPhotos函数处理 ---- 成功")
-
+      await Photos.insertMany(photosList)
       // 给下一个函数 PhotosRename 用
       return photosList
   } catch (error) {
@@ -141,11 +141,8 @@ const processName = async (url, type, imgPath) => {
 
     return result
 }
-const PhotosRename = async (data) => {
+const PhotosRename = async (data,imgPath) => {
   try {
-    const fPath = Path.resolve(__dirname, "../public/photosAlias/") // 输入想要存储的路径
-    const imgPath = createFileWithDate(fPath) // 完整的时间戳文件夹的绝对路径，例如: /Users/tanshuo888/Downloads/测试脚本/CPY/cpy/CPY-main/config/imgDownload/2025.10.16-13.38.52
-
     let photoList = []
     for (const photo of data) {
         for (const type in photo.photos) {
@@ -166,11 +163,14 @@ const PhotosRename = async (data) => {
 const AddProducts = async (charactersItem) => {
     try {
       let addData = []
-      console.log('uuid',charactersItem.uuid)
       const hexString = charactersItem.uuid.toString('hex')
       const sku = [ hexString.slice(0, 8), hexString.slice(8, 12), hexString.slice(12, 16), hexString.slice(16, 20), hexString.slice(20, 32) ].join('-');
-      let product = [{paid: true, sku, ts: new Date().getTime(), price: 100}]
-      addData.push(product)
+      addData.push({  // 直接推对象，而非数组
+        paid: true, 
+        sku: sku, 
+        ts: new Date().getTime(), 
+        price: 100 
+      });
       let photo = charactersItem.photos.map((res, index) => ({paid: index==0, sku: uuidv4(), ts: new Date().getTime(), path: res, price: 50}))
       addData = [...addData, ...photo]
       if (addData.length) {
@@ -207,21 +207,25 @@ function createFileWithDate(path) {
 }
 
 const handleSingleItem = async(charactors) => {
+    // 存储位置
+    const fPath = Path.resolve(__dirname, "../public/photosAlias/") // 输入想要存储的路径
+    const imgPath = createFileWithDate(fPath) // 完整的时间戳文件夹的绝对路径，例如: /Users/tanshuo888/Downloads/测试脚本/CPY/cpy/CPY-main/config/imgDownload/2025.10.16-13.38.52
+
     // 转为item模式
     for(const charactor of charactors){
       try {
         // 执行函数一
         const charactor_photoList = await CharacterPhotos(charactor)
         // 执行函数二
-        await PhotosRename(charactor_photoList)
+        await PhotosRename(charactor_photoList,imgPath)
         // 执行函数三
         await AddProducts(charactor)
-        console.log(`当前测试数据的uuid: ${charactor.uuid}; ---- 成功\n`)
+        console.log(`当前测试数据的uuid: ${charactor.uuid.toString('hex')}; ---- 成功\n`)
 
       } catch (error) {
 
         console.log(`错误信息： ${error.message} ${error.cause} \n ${error.cause?.stack} `)
-        console.log(`当前测试数据的uuid: ${charactor.uuid}; ---- 失败\n`)
+        console.log(`当前测试数据的uuid: ${charactor.uuid.toString('hex')}; ---- 失败\n`)
       }
     }
 }

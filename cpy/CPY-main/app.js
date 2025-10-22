@@ -1,5 +1,6 @@
 // 1. 引入第三方包（express）
 const express = require('express');
+const multer = require('multer')
 
 // 2. 引入自定义工具模块（db.js）
 const { establishDbConnection, closeConnection } = require('./config/db.js');
@@ -7,14 +8,19 @@ const { establishDbConnection, closeConnection } = require('./config/db.js');
 // 3. 引入 mongoose
 const mongoose = require('mongoose');
 
-// 4. 引入自定义业务函数（updatecharacter3.js）
-const { CharacterPhotos, 
-  PhotosRename, 
-  AddProducts 
-} = require('./updatecharacter3_修改.js');
+// 4.引入路由
+const conversationRoter = require("./router/conversation.router.js")
+
+// // 4. 引入自定义业务函数
+// const Conversation = require("./models/ai_conversation.model.js")
 
 const app = express()
 const PORT = 4000
+
+const upload = multer()
+
+app.use(express.json())
+app.use(express.urlencoded({ extended: false }));
 
 
 const init = async () => {
@@ -23,17 +29,7 @@ const init = async () => {
     console.log('连接数据库')
     await establishDbConnection()
 
-    // 获取test数据库中集合charactors的数据
-    const charactorsCollection = mongoose.connection.db.collection("charactors")
-    // 从集合中全表查询数据 数据是cursor类型, 需要通过toArray转换为可操作的对象数组
-    // 同时返回一个promise对象,所以要异步处理,否则不会获得常规数据,而是一个promise对象
-    const result = await charactorsCollection.find({}).toArray()
-
-    // console.log('查询结果为')
-    // console.log(result)
-
-    // 新的处理方式 （item模式）
-    await handleSingleItem(result)
+    // const conversations = await mongoose.connection.collection("conversation").find().toArray()
 
     // 断开数据库
     // console.log('断开数据库')
@@ -42,32 +38,33 @@ const init = async () => {
   } catch (error) {
     console.error('init整体抓取的报错信息:', error)
   }
-
 }
 
+// 连接数据库
 init()
-const handleSingleItem = async(charactors) => {
-    // 执行单个item的思路 -> 就统一整合进一个函数
-    // 1.直接转为item模式
-    for(const charactor of charactors){
-      try {
-        // 执行函数一
-        const charactor_photoList = await CharacterPhotos(charactor)
-        // 执行函数二
-        await PhotosRename(charactor_photoList)
-        // 执行函数三
-        await AddProducts(charactor)
 
-        console.log(`当前测试数据的uuid: ${charactor.uuid}; ---- 成功\n`)
-      } catch (error) {
-        console.log(`错误信息： ${error.message} ${error.cause} \n ${error.cause?.stack} `)
-        console.log(`当前测试数据的uuid: ${charactor.uuid}; ---- 失败\n`)
-      }
-    }
-    
-}
+// 注册路由 借助multer把form-data数据存入req.body中
+app.use('/search', upload.none() ,conversationRoter)
 
-app.use(express.json())
+
+// 未匹配路由处理（404错误）
+app.use((req, res, next) => {
+  // 当请求的路由未被任何已注册的路由匹配时，会进入这里
+  const error = new Error(`未找到请求的路由: ${req.method} ${req.originalUrl}`);
+  error.statusCode = 404; // 标记为404错误
+  next(error); // 传递给全局错误处理中间件
+});
+
+// 全局错误处理中间件
+app.use((err, req, res, next) => {
+  console.error('服务器错误：', err);
+  res.status(500).json({
+    code: 500,
+    message: '服务器内部错误',
+    error: err.message
+  });
+});
+
 
 app.listen(PORT, () => {
   console.log(`数据库运行 http://localhost:${PORT}`)

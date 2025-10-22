@@ -1,302 +1,257 @@
 [
   {
-    "studentId": "2023001",
     "name": "张三",
     "age": 20,
     "gender": "男",
-    "major": "计算机科学与技术",
-    "grade": 3,
+    "major": "计算机科学",
+    "grade": "大二",
     "score": {
-      "math": 88,
-      "english": 76,
-      "programming": 92
+      "math": 92,
+      "english": 85,
+      "programming": 98,
+      "database": 94
     },
-    "isActive": true,
-    "enrollmentDate": "2023-09-01"
+    "hobbies": ["编程", "篮球", "看电影"],
+    "hometown": "北京",
+    "enrollYear": 2022,
+    "isScholarship": true
   },
   {
-    "studentId": "2023002",
     "name": "李四",
     "age": 21,
     "gender": "女",
     "major": "软件工程",
-    "grade": 3,
+    "grade": "大三",
     "score": {
-      "math": 95,
-      "english": 89,
-      "programming": 96
+      "math": 88,
+      "english": 90,
+      "programming": 95,
+      "database": 89
     },
-    "isActive": true,
-    "enrollmentDate": "2023-09-01"
+    "hobbies": ["画画", "阅读", "瑜伽"],
+    "hometown": "上海",
+    "enrollYear": 2021,
+    "isScholarship": false
   },
   {
-    "studentId": "2023003",
     "name": "王五",
     "age": 19,
     "gender": "男",
     "major": "数据科学",
-    "grade": 2,
+    "grade": "大一",
     "score": {
-      "math": 78,
-      "english": 65,
-      "programming": 88
+      "math": 95,
+      "english": 88,
+      "programming": 90,
+      "database": 92
     },
-    "isActive": true,
-    "enrollmentDate": "2024-09-01"
+    "hobbies": ["数据分析", "羽毛球", "旅行"],
+    "hometown": "广州",
+    "enrollYear": 2023,
+    "isScholarship": true
   },
   {
-    "studentId": "2023004",
     "name": "赵六",
     "age": 22,
     "gender": "女",
     "major": "人工智能",
-    "grade": 4,
+    "grade": "大四",
     "score": {
-      "math": 92,
-      "english": 85,
-      "programming": 98
+      "math": 96,
+      "english": 93,
+      "programming": 99,
+      "database": 97
     },
-    "isActive": true,
-    "enrollmentDate": "2022-09-01"
+    "hobbies": ["机器学习", "钢琴", "跑步"],
+    "hometown": "深圳",
+    "enrollYear": 2020,
+    "isScholarship": true
   },
   {
-    "studentId": "2023005",
     "name": "孙七",
     "age": 20,
     "gender": "男",
-    "major": "计算机科学与技术",
-    "grade": 3,
+    "major": "计算机科学",
+    "grade": "大二",
     "score": {
-      "math": 68,
-      "english": 72,
-      "programming": 80
+      "math": 85,
+      "english": 82,
+      "programming": 88,
+      "database": 86
     },
-    "isActive": false,
-    "enrollmentDate": "2023-09-01"
+    "hobbies": ["游戏", "健身", "听音乐"],
+    "hometown": "北京",
+    "enrollYear": 2022,
+    "isScholarship": false
   },
   {
-    "studentId": "2023006",
     "name": "周八",
     "age": 21,
     "gender": "女",
     "major": "软件工程",
-    "grade": 3,
+    "grade": "大三",
     "score": {
-      "math": 85,
-      "english": 90,
-      "programming": 87
+      "math": 90,
+      "english": 89,
+      "programming": 92,
+      "database": 91
     },
-    "isActive": true,
-    "enrollmentDate": "2023-09-01"
+    "hobbies": ["烘焙", "摄影", "徒步"],
+    "hometown": "上海",
+    "enrollYear": 2021,
+    "isScholarship": true
   },
   {
-    "studentId": "2023007",
     "name": "吴九",
     "age": 19,
     "gender": "男",
     "major": "数据科学",
-    "grade": 2,
+    "grade": "大一",
     "score": {
-      "math": 90,
-      "english": 78,
-      "programming": 85
+      "math": 89,
+      "english": 91,
+      "programming": 85,
+      "database": 88
     },
-    "isActive": true,
-    "enrollmentDate": "2024-09-01"
+    "hobbies": ["下棋", "编程", "钓鱼"],
+    "hometown": "广州",
+    "enrollYear": 2023,
+    "isScholarship": false
   },
   {
-    "studentId": "2023008",
     "name": "郑十",
-    "age": 23,
+    "age": 22,
     "gender": "女",
     "major": "人工智能",
-    "grade": 4,
+    "grade": "大四",
     "score": {
-      "math": 82,
-      "english": 88,
-      "programming": 91
+      "math": 94,
+      "english": 95,
+      "programming": 97,
+      "database": 96
     },
-    "isActive": true,
-    "enrollmentDate": "2022-09-01"
+    "hobbies": ["深度学习", "书法", "游泳"],
+    "hometown": "深圳",
+    "enrollYear": 2020,
+    "isScholarship": true
   },
   {
-    "studentId": "2023009",
     "name": "钱十一",
     "age": 20,
     "gender": "男",
-    "major": "计算机科学与技术",
-    "grade": 3,
-    "score": {
-      "math": 75,
-      "english": 68,
-      "programming": 82
-    },
-    "isActive": true,
-    "enrollmentDate": "2023-09-01"
-  },
-  {
-    "studentId": "2023010",
-    "name": "孙十二",
-    "age": 21,
-    "gender": "女",
-    "major": "软件工程",
-    "grade": 3,
-    "score": {
-      "math": 89,
-      "english": 92,
-      "programming": 86
-    },
-    "isActive": true,
-    "enrollmentDate": "2023-09-01"
-  },
-  {
-    "studentId": "2023011",
-    "name": "李十三",
-    "age": 20,
-    "gender": "男",
-    "major": "数据科学",
-    "grade": 2,
-    "score": {
-      "math": 85,
-      "english": 76,
-      "programming": 90
-    },
-    "isActive": true,
-    "enrollmentDate": "2024-09-01"
-  },
-  {
-    "studentId": "2023012",
-    "name": "赵十四",
-    "age": 22,
-    "gender": "女",
-    "major": "人工智能",
-    "grade": 4,
-    "score": {
-      "math": 94,
-      "english": 87,
-      "programming": 96
-    },
-    "isActive": false,
-    "enrollmentDate": "2022-09-01"
-  },
-  {
-    "studentId": "2023013",
-    "name": "周十五",
-    "age": 19,
-    "gender": "男",
-    "major": "计算机科学与技术",
-    "grade": 3,
-    "score": {
-      "math": 72,
-      "english": 65,
-      "programming": 78
-    },
-    "isActive": true,
-    "enrollmentDate": "2023-09-01"
-  },
-  {
-    "studentId": "2023014",
-    "name": "吴十六",
-    "age": 21,
-    "gender": "女",
-    "major": "软件工程",
-    "grade": 3,
-    "score": {
-      "math": 88,
-      "english": 89,
-      "programming": 91
-    },
-    "isActive": true,
-    "enrollmentDate": "2023-09-01"
-  },
-  {
-    "studentId": "2023015",
-    "name": "郑十七",
-    "age": 20,
-    "gender": "男",
-    "major": "数据科学",
-    "grade": 2,
-    "score": {
-      "math": 81,
-      "english": 79,
-      "programming": 85
-    },
-    "isActive": true,
-    "enrollmentDate": "2024-09-01"
-  },
-  {
-    "studentId": "2023016",
-    "name": "钱十八",
-    "age": 23,
-    "gender": "女",
-    "major": "人工智能",
-    "grade": 4,
-    "score": {
-      "math": 93,
-      "english": 91,
-      "programming": 95
-    },
-    "isActive": true,
-    "enrollmentDate": "2022-09-01"
-  },
-  {
-    "studentId": "2023017",
-    "name": "孙十九",
-    "age": 20,
-    "gender": "男",
-    "major": "计算机科学与技术",
-    "grade": 3,
-    "score": {
-      "math": 76,
-      "english": 69,
-      "programming": 83
-    },
-    "isActive": true,
-    "enrollmentDate": "2023-09-01"
-  },
-  {
-    "studentId": "2023018",
-    "name": "李二十",
-    "age": 21,
-    "gender": "女",
-    "major": "软件工程",
-    "grade": 3,
+    "major": "计算机科学",
+    "grade": "大二",
     "score": {
       "math": 87,
-      "english": 85,
-      "programming": 89
+      "english": 84,
+      "programming": 91,
+      "database": 89
     },
-    "isActive": true,
-    "enrollmentDate": "2023-09-01"
+    "hobbies": ["篮球", "编程", "看剧"],
+    "hometown": "北京",
+    "enrollYear": 2022,
+    "isScholarship": false
   },
   {
-    "studentId": "2023019",
-    "name": "赵二十一",
-    "age": 19,
-    "gender": "男",
-    "major": "数据科学",
-    "grade": 2,
-    "score": {
-      "math": 84,
-      "english": 77,
-      "programming": 88
-    },
-    "isActive": true,
-    "enrollmentDate": "2024-09-01"
-  },
-  {
-    "studentId": "2023020",
-    "name": "周二十二",
-    "age": 22,
+    "name": "冯十二",
+    "age": 21,
     "gender": "女",
+    "major": "软件工程",
+    "grade": "大三",
+    "score": {
+      "math": 93,
+      "english": 92,
+      "programming": 94,
+      "database": 93
+    },
+    "hobbies": ["瑜伽", "阅读", "编程"],
+    "hometown": "上海",
+    "enrollYear": 2021,
+    "isScholarship": true
+  },
+  {
+    "name": "陈十三",
+    "age": 23,
+    "gender": "男",
     "major": "人工智能",
-    "grade": 4,
+    "grade": "大四",
     "score": {
       "math": 91,
-      "english": 88,
-      "programming": 93
+      "english": 87,
+      "programming": 96,
+      "database": 95
     },
-    "isActive": true,
-    "enrollmentDate": "2022-09-01"
+    "hobbies": ["机器人", "跑步", "编程"],
+    "hometown": "深圳",
+    "enrollYear": 2020,
+    "isScholarship": true
+  },
+  {
+    "name": "杨十四",
+    "age": 19,
+    "gender": "女",
+    "major": "数据科学",
+    "grade": "大一",
+    "score": {
+      "math": 92,
+      "english": 86,
+      "programming": 89,
+      "database": 90
+    },
+    "hobbies": ["数据可视化", "羽毛球", "阅读"],
+    "hometown": "广州",
+    "enrollYear": 2023,
+    "isScholarship": true
+  },
+  {
+    "name": "黄十五",
+    "age": 20,
+    "gender": "男",
+    "major": "计算机科学",
+    "grade": "大二",
+    "score": {
+      "math": 89,
+      "english": 88,
+      "programming": 93,
+      "database": 91
+    },
+    "hobbies": ["编程", "游戏", "健身"],
+    "hometown": "北京",
+    "enrollYear": 2022,
+    "isScholarship": false
+  },
+  {
+    "name": "林十六",
+    "age": 21,
+    "gender": "女",
+    "major": "软件工程",
+    "grade": "大三",
+    "score": {
+      "math": 86,
+      "english": 93,
+      "programming": 90,
+      "database": 88
+    },
+    "hobbies": ["画画", "徒步", "瑜伽"],
+    "hometown": "上海",
+    "enrollYear": 2021,
+    "isScholarship": false
+  },
+  {
+    "name": "刘十七",
+    "age": 22,
+    "gender": "男",
+    "major": "数据科学",
+    "grade": "大二",
+    "score": {
+      "math": 94,
+      "english": 90,
+      "programming": 92,
+      "database": 93
+    },
+    "hobbies": ["数据分析", "旅行", "编程"],
+    "hometown": "广州",
+    "enrollYear": 2022,
+    "isScholarship": true
   }
 ]

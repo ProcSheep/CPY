@@ -1,0 +1,177 @@
+[{
+  "_id": {
+    "$oid": "67b532eeb4a05c83124b369d"
+  },
+  "name": "OC",
+  "characters": [
+    "0d466548-e3ce-445b-ab2c-de2e78857d23",
+    "63881ffd-51fe-436a-8006-bb8da4dc79f1",
+    "324372fc-e358-4788-ad59-a22311a9fc35",
+    "615dc37c-7714-46ba-90b6-c16d35b172e7",
+    "dcd36f96-4ad8-4751-8169-53b684c5bf4a",
+    "0207a057-e06b-4192-97e6-6df0058710b6",
+    "ac1a5276-b7ab-4e6c-b729-45d5ec878505",
+    "795d1e60-2af4-4b75-abf9-edf0e20e0ddf",
+    "52b9dc6a-1893-405a-9e6b-cb4a1743d53f",
+    "dcd36f96-4ad8-4751-8169-53b684c5bf4a"
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b5755bb4a05c83124b36a2"
+  },
+  "name": "Anime",
+  "characters": [
+    "0d466548-e3ce-445b-ab2c-de2e78857d23",
+    "7a7324dd-d504-480d-a679-d2290cc98d6f",
+    "1fe1a830-5bf1-4edb-a4e6-03be142b81a9",
+    "f15f30a3-2b62-4309-b847-94542504b7b7",
+    "49a1ff1c-3da4-49e9-85ea-6777fc1f2068",
+    "dcd36f96-4ad8-4751-8169-53b684c5bf4a",
+    "0207a057-e06b-4192-97e6-6df0058710b6"
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b57f3ab4a05c83124b36a5"
+  },
+  "name": "Love",
+  "characters": [
+    "63881ffd-51fe-436a-8006-bb8da4dc79f1",
+    "324372fc-e358-4788-ad59-a22311a9fc35",
+    "3932d8c7-1eb5-4d33-8e3e-151aff9a8ad9"
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b59be2b4a05c83124b36ad"
+  },
+  "name": "Sugar & Spice",
+  "characters": [
+    "7a7324dd-d504-480d-a679-d2290cc98d6f",
+    "",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b59d12b4a05c83124b36ae"
+  },
+  "name": "Pansexual",
+  "characters": [
+    "7a7324dd-d504-480d-a679-d2290cc98d6f",
+    "3ca78dd8-0bc7-4740-a729-36da1fa2875c",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6e903b4a05c83124b36b2"
+  },
+  "name": "Game",
+  "characters": [
+    "",
+    "",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6ea8ab4a05c83124b36b3"
+  },
+  "name": "Urban elite",
+  "characters": [
+    "5485034d-73f9-4be9-bdfc-391db9a49d10",
+    "e443db02-58e8-4852-a676-576b6a240be0",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6eae2b4a05c83124b36b4"
+  },
+  "name": "Play & Fun",
+  "characters": [
+    "",
+    "",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6eb18b4a05c83124b36b5"
+  },
+  "name": "Novel",
+  "characters": [
+    "",
+    "",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6eb23b4a05c83124b36b6"
+  },
+  "name": "Assistant",
+  "characters": [
+    "3932d8c7-1eb5-4d33-8e3e-151aff9a8ad9",
+    "3932d8c7-1eb5-4d33-8e3e-151aff9a8ad9",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6eb2fb4a05c83124b36b7"
+  },
+  "name": "Male",
+  "characters": [
+    "871bb4fd-3b39-440f-9cb9-298b259da14d",
+    "3ca78dd8-0bc7-4740-a729-36da1fa2875c",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6eb47b4a05c83124b36b9"
+  },
+  "name": "Creepypasta",
+  "characters": [
+    "795d1e60-2af4-4b75-abf9-edf0e20e0ddf",
+    "5989bd9c-933c-4b8b-b078-730db949ca1e",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6eb5cb4a05c83124b36ba"
+  },
+  "name": "Non-human",
+  "characters": [
+    "3ca78dd8-0bc7-4740-a729-36da1fa2875c",
+    "",
+    ""
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6eb72b4a05c83124b36bb"
+  },
+  "name": "Enemies to Lovers",
+  "characters": [
+    "04245186-9d86-4c2a-95bd-adeb2ba0744b",
+    "4bb1dcd3-426d-4548-a900-7e756f760654",
+    "f310aa44-e0d8-4b80-a653-79c283feac1a",
+    "89cdc0df-d2a6-41cb-b525-0a0d7ccd974a"
+  ]
+},
+{
+  "_id": {
+    "$oid": "67b6eb7cb4a05c83124b36bc"
+  },
+  "name": "Monster Girl",
+  "characters": [
+    "",
+    "",
+    ""
+  ]
+}]

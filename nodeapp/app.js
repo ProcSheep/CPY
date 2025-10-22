@@ -17,6 +17,7 @@ app.use(corsMiddleware);
 // 连接数据库
 // connectDB()
 
+// 重要的中间件
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -26,6 +27,13 @@ app.use(imageRouter)
 app.use(uploadRouter)
 app.use('/test',testRouter)
 
+// 未匹配路由处理（404错误）
+app.use((req, res, next) => {
+  // 当请求的路由未被任何已注册的路由匹配时，会进入这里
+  const error = new Error(`未找到请求的路由: ${req.method} ${req.originalUrl}`);
+  error.statusCode = 404; // 标记为404错误
+  next(error); // 传递给全局错误处理中间件
+});
 
 // 全局错误处理中间件
 app.use((err, req, res, next) => {

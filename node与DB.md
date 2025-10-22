@@ -311,6 +311,12 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   ```
   > 但是不保证数据插入是否成功,所以丢失数据也不知道
 
+### 删
+- 删除对标新增: `deleteOne deleteMany findOneAndDelete`, 参数也是filter和options(可选自查)，写好要删除的文档的查询条件； 额外的findOneAndDelete 返回被删除的文档，如果找不到匹配的文档，则返回 null。
+
+ > 又补充接着写 ... 
+
+
 ### 查
 - 1.find查询: 
   ```shell
@@ -325,7 +331,7 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
       { grade: 0, _id: 0 }  
     )
   ···
-  > 第一个是查询条件，第二个指定不显示的属性（0），或者指定显示的属性（1）， 只能写一个，不写就全部显示
+  > 第一个是查询条件，第二个指定不显示的属性（0），或者指定显示的属性（1）， 只能写一种（0或1），不写就全部显示
 - 2.findOne: 同理查询，但是只会返回查到符合条件的第一个结果
 - ==3.关系运算符==
 
@@ -338,8 +344,8 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
 | `$gte`       | `{ field: { $gte: value } }`| 匹配字段值**大于等于**指定值           | 同上                     |
 | `$lt`        | `{ field: { $lt: value } }` | 匹配字段值**小于**指定值               | 同上                     |
 | `$lte`       | `{ field: { $lte: value } }`| 匹配字段值**小于等于**指定值           | 同上                     |
-| `$in`        | `{ field: { $in: [v1, v2] } }` | 匹配字段值**等于数组中任意一个值**     | 所有类型（数组元素需与字段类型一致） |
-| `$nin`       | `{ field: { $nin: [v1, v2] } }`| 匹配字段值**不等于数组中所有值**       | 同上                     |
+| `$in`        | `{ field: { $in: [v1, v2, ...] } }` | 匹配字段值**等于数组中任意一个值**     | 所有类型（数组元素需与字段类型一致） |
+| `$nin`       | `{ field: { $nin: [v1, v2, ...] } }`| 匹配字段值**不等于数组中所有值**       | 同上                     |
 
 
 - 示例说明：
@@ -429,8 +435,105 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   - 复杂查询中可嵌套使用逻辑运算符（如 `$and` 中包含 `$or`），实现多维度条件判断。
 
 ### 改
+- 1.`db.collection.updateOne()`: 参数为 query(条件)，update(更新操作符+更新内容) options（更新选项）
+  ```js
+    db.myCollection.updateOne(
+      { name: "Alice" },                // 过滤条件
+      { $set: { age: 26 } },            // 更新操作
+      { upsert: false }                 // 可选参数
+    );
+  ```
+  > 不同的api返回的值不同,比如上面更新成功后会显示如下
+    ```js
+        {
+          acknowledged: true,
+          insertedId: null,
+          matchedCount: 1,
+          modifiedCount: 1,
+          upsertedCount: 0
+        }
+    ```
+- ==还有常见的api==：`updateMany()、replaceOne() 和 findOneAndUpdate()`； 另外的：returnDocument：在 findOneAndUpdate 中使用，指定返回更新前 ("before") 或更新后 ("after") 的文档
+- ==1.常见地options==
+  - upsert: true=更新查询的数据不存在就插入更新内容
+  - arrayFilters: 数组条件筛选并更新
+  ```js
+    {
+      _id: 1,
+      name: "小明",
+      age: 18,
+      scores: [ // 核心：scores 是数组，数组元素是对象
+        { subject: "数学", score: 85, passed: true },  // 分数≥60，原本已通过
+        { subject: "英语", score: 58, passed: true },  // 分数<60，需要更新 passed 为 false
+        { subject: "语文", score: 45, passed: true },  // 分数<60，需要更新 passed 为 false
+        { subject: "物理", score: 72, passed: true }   // 分数≥60，不更新
+      ]
+    }
 
-
+    // 更新数组中 "scores.score" < 60 的元素，将其 "passed" 设为 false
+    db.students.updateOne(
+      { _id: 1 },
+      { $set: { "scores.$[elem].passed": false } },
+      { arrayFilters: [{ "elem.score": { $lt: 60 } }] }
+    );
+  ```
+  - ==解释：`scores.$[elem].passed`关键语法==
+    - scores：要操作的数组字段名; 
+    - $[elem]：数组筛选占位符（elem 是自定义的变量名，你也可以叫 item/scoreItem 等），表示 “满足 arrayFilters 条件的数组元素
+    - 整体含义：给 scores 数组中，所有符合 elem 筛选条件的元素，把 passed 设为 false
+  - ==arrayFilters：数组类型，里面是筛选规则对象，用于定义 $[elem] 要匹配的条件==
+    - **elem 对应前面的占位符 $[elem]（变量名必须一致！）**
+    - elem.score：表示 “数组元素中的 score 字段, $lt: 60：小于 60（MongoDB 的比较操作符）
+    - 整体含义：$[elem] 只匹配 scores 数组中 score < 60 的元素。
+  - ==核心==
+    - ==占位符与筛选器的关联==：$[变量名] 必须和 arrayFilters 中的 变量名.字段 对应（比如这里的 elem 统一）
+    - ==批量更新数组元素==：如果数组中有多个元素符合筛选条件，会 批量更新所有匹配的元素（比如这里同时更新英语和语文），无需循环； 对比传统写法：如果没有 arrayFilters，用 `$` 占位符只能更新数组中 第一个匹配查询条件的元素（比如 scores`.$.`passed 只能改英语，改不了语文），而 arrayFilters 可以批量更新所有符合条件的元素。
+    - 原子操作： 找到_id用户数据，一次性修改所有数组符合条件的元素
+  - collation： 指定字符串比较规则，比如大小写
+    ```js
+      // 强制使用 "email" 索引查询并更新
+      db.users.updateOne(
+        { email: "user@example.com" },
+        { $set: { status: "active" } },
+        { hint: "email_1" } // 指定索引名称
+      );
+    ```
+  - hint: 强制 MongoDB 使用指定的索引进行查询，优化更新操作的性能; 索引相关了解
+  - session： ？
+- ==2.常见的更新操作符==
+  - 2.1 字段操作符
+  - $set: 修改字段
+  - $unset: 删除指定字段
+    ```js
+      db.users.updateOne(
+        { _id: 1 },
+        { $unset: { age: "" } } // 值可以是任意类型（通常用空字符串）
+      );
+    ```
+  - $rename: 重命名字段
+    ```js
+      db.users.updateOne(
+        { _id: 1 },
+        { $rename: { "name": "username", "address.city": "address.urban" } }
+      );
+    ```
+  - 2.2 数值操作符
+  - $inc: 自增自减， 示例：给商品库存减 1，销量加 1
+    ```js
+      db.products.updateOne(
+        { _id: 100 },
+        { $inc: { stock: -1, sales: 1 } }
+      );
+    ```
+  - $mul: 乘法运算
+    ```js
+      db.products.updateOne(
+        { _id: 100 },
+        { $mul: { price: 1.2 } }
+      );
+    ```
+  - 2.3 数组操作符 `$push $pop $pull $addToSet` .....
+  - 2.4 条件操作符 `$setOnInsert $currentDate` ..... 
 
 ## 排序与分页
 - 排序语法： `db.collection.find({...}).sort({ field1: 1, field2: -1 })`
@@ -443,6 +546,116 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     db.myCollection.find().skip(10).limit(10);
   ```
 ## 索引
+- 可以把 MongoDB 的索引理解成 图书馆的「图书目录」，这样就很好懂了：
+- ==1.什么是索引？==
+  假设你去图书馆找一本关于「MongoDB 索引」的书：
+  如果没有目录（无索引），你得从第一排书架开始一本本翻，直到找到目标书，效率极低（全表扫描）。
+  如果有目录（有索引），你可以直接查目录，找到这本书所在的书架编号和位置，直接过去取，瞬间搞定（精准定位）。
+  在 MongoDB 中，索引就是给集合（表）中的字段创建的「目录」，它单独存储了字段的值和对应文档的位置信息，避免了查询时扫描整个集合。
+- ==2.索引的作用？==
+  加速查询（核心作用）就像查目录比翻全馆书快，带索引的查询能跳过无关文档，直接定位到符合条件的数据。比如查询 age: 25 时，有 age 索引就不用遍历所有文档，直接找 age=25 的位置。
+  优化排序如果需要按某个字段排序（比如 db.students.find().sort({score: -1})），没有索引的话，MongoDB 会先查所有数据再排序（内存中排序）；有索引的话，索引本身是有序的，直接按索引顺序取数据即可，速度极快。
+- ==3.举个反例：没有索引会怎样？==
+  假设你的 students 集合有 100 万条数据，想查 major: "计算机科学" 的学生：
+  无索引：MongoDB 会逐行检查这 100 万条文档的 major 字段，像翻字典从头找某个词，耗时可能几秒甚至更久。
+  有索引：MongoDB 直接查 major 字段的索引表，瞬间找到所有「计算机科学」对应的文档位置，耗时可能只有几毫秒。
+- ==注意点（和图书馆目录的区别）==：
+  索引会占用额外空间（目录本身也要占几页纸），不是越多越好。
+  增删改数据时，索引会同步更新（比如新书上架要更新目录），所以过多索引会拖慢写操作。
+  总结：索引是「用空间换时间」的典型设计，合理创建索引能让查询效率提升几十到几千倍。
+- ==创建索引createIndex函数:== `db.collection.createIndex( keys, options )`
+  - db：数据库的引用。
+    collection：集合的名称。
+    keys：一个对象，指定了字段名和索引的排序方向（1 表示升序，-1 表示降序）。
+    options：一个可选参数，可以包含索引的额外选项。
+    - options 参数是一个对象，可以包含多种配置选项，以下是一些常用的选项：
+      - unique：如果设置为 true，则创建唯一索引，确保索引字段的值在集合中是唯一的。
+      - background：如果设置为 true，则索引创建过程在后台运行，不影响其他数据库操作。
+      - name：指定索引的名称，如果不指定，MongoDB 会根据索引的字段自动生成一个名称。
+      - sparse：如果设置为 true，创建稀疏索引，只索引那些包含索引字段的文档。
+      - expireAfterSeconds：设置索引字段的过期时间，MongoDB 将自动删除过期的文档。
+      - v：索引版本，通常不需要手动设置。
+      - weights：为文本索引指定权重。
+  ```js
+    // 创建唯一索引
+    db.collection.createIndex( { field: 1 }, { unique: true } )
+
+    // 创建后台运行的索引
+    db.collection.createIndex( { field: 1 }, { background: true } )
+
+    // 创建稀疏索引
+    db.collection.createIndex( { field: 1 }, { sparse: true } )
+
+    // 创建文本索引并指定权重
+    db.collection.createIndex( { field: "text" }, { weights: { field: 10 } } )
+  ```
+- ==如何建立合适的索引==
+  - 总结：索引创建的「黄金法则」
+  - 查询多、修改少」的字段优先建索引；
+  - 「区分度高」的字段比「重复度高」的字段更适合；
+  - 多条件查询用「复合索引」，字段顺序按「查询频率」排序；
+  - 索引不是越多越好，够用就行（过多索引会拖慢插入 / 更新 / 删除操作， 因为更新数据索引也会跟着改变）。
+- ==不合适建立索引的情况==
+  - 查询极少的字段：比如「学生的家庭住址」，一年都查不了一次，建索引只会浪费空间（类似给图书馆里没人查的书做目录）。
+  - 重复度极高的字段：比如 gender（男 / 女 / 其他）、isStudent（true/false），索引无法有效过滤数据，查询效率提升有限。
+  - 频繁修改的字段：比如「学生的在线状态」（每秒更新），修改字段时需要同步更新索引，会拖慢写操作（类似图书馆里的书频繁换位置，目录要天天改，反而麻烦）。
+  - 值长度过大的字段：比如「学生的个人简介」（几千字），索引会占用大量空间，查询时也会变慢（类似目录里写满了书的内容，而不是简单的关键词）。
+  - 小集合字段：如果集合只有几百条数据，全表扫描比查索引还快（类似只有几本书的小书店，直接翻找比查目录更省事）
+  >
+- ==适合创建索引的 6 类字段（附场景）==
+  1. 「查询条件字段」（最常用，对应 find() 中的 query 条件）
+  类比：图书馆中大家最常按「书名」「作者」查书，这两个字段就该做目录。场景：如果经常用某个字段过滤数据（比如 where 条件），就适合建索引。
+  示例：
+  经常查 major: "计算机科学"（专业）、age: 20（年龄）、gender: "男"（性别），这些字段可以建索引。
+  代码示例（创建单字段索引）：
+    ```js
+      db.students.createIndex({ major: 1 }); // 1=升序，-1=降序（单字段索引中影响不大）
+      db.students.createIndex({ age: 1 });
+    ```
+  2. 「排序字段」（对应 sort() 中的字段）
+  类比：如果大家经常需要按「出版年份」排序找书，图书馆会给「出版年份」做专门的有序目录，避免找完书再手动排序。场景：查询时需要用 sort() 排序的字段，建索引后排序速度会大幅提升（索引本身是有序的，不用额外排序）。
+  示例：
+  经常执行 db.students.find().sort({ score.programming: -1 })（按编程成绩降序），就给 score.programming 建索引。
+  代码示例（嵌套字段索引）：
+  ```js
+    db.students.createIndex({ "score.programming": -1 }); // 排序字段建议和索引排序方向一致
+  ```
+  3. 「区分度高的字段」（值不重复 / 重复少的字段）
+  类比：「ISBN 编号」（每本书唯一）比「出版社」（很多书同一出版社）区分度高，按 ISBN 查书能精准定位，按出版社查还是要翻一堆书。场景：字段的值越独特，索引的查询效率越高。比如「姓名」（重复少）比「性别」（只有男 / 女 / 其他，重复极多）更适合建索引。
+  反例：给 gender 建索引意义不大 —— 即使有索引，查询 gender: "男" 还是要返回一半数据，索引无法大幅减少扫描量（类似按「性别」查图书馆目录，还是要找半馆书）。
+  正向示例：给 studentId（学号，唯一）、email（邮箱，唯一）建索引，查询时能瞬间定位到单个文档。
+  代码示例（唯一索引，确保字段值不重复）：
+  ```js
+    db.students.createIndex({ studentId: 1 }, { unique: true }); // 唯一索引，避免重复学号
+  ```
+  4. 「多条件查询的前缀字段」（复合索引场景）
+  类比：如果大家经常按「分类 + 书名」查书（比如「计算机类 + MongoDB 索引」），图书馆会做一个「分类 - 书名」的组合目录，不用先查分类再查书名。场景：经常用多个字段组合查询（比如 major: "计算机科学" + grade: "大二"），可以创建「复合索引」，但要注意字段顺序（高频查询的字段放前面）。
+  示例：
+  经常执行 db.students.find({ major: "计算机科学", grade: "大二" })，创建复合索引 { major: 1, grade: 1 }。
+  注意：复合索引遵循「前缀匹配原则」—— 比如索引 { a:1, b:1, c:1 } 能匹配 a、a+b、a+b+c 的查询，但不能匹配 b、b+c 的查询（类似目录只按「分类 - 书名」排序，不能直接按「书名」查）。
+  代码示例（复合索引）：
+  ```js
+    db.students.createIndex({ major: 1, grade: 1 }); // 高频查询字段放前面
+  ```
+  5. 「文本搜索字段」（需要模糊匹配的字段）
+  类比：如果大家经常按「关键词」搜书（比如 “MongoDB 入门”），图书馆会做一个「关键词索引」，而不是让你翻所有书的内容。场景：需要用`$`text 做模糊搜索的字段（比如搜索学生姓名、专业描述中的关键词），可以创建文本索引。
+  示例：
+  想通过关键词搜索学生（比如 db.students.find({ `$`text: { $search: "计算机 编程" } })），给 name、major 字段创建文本索引。
+  代码示例（文本索引）：
+  ```js
+    db.students.createIndex({ name: "text", major: "text" }); // 支持多字段联合文本搜索
+  ```
+  6. 「聚合管道中的过滤 / 排序字段」（对应 `$`match/`$`sort）
+  类比：如果图书馆需要统计「2020 年后出版的计算机类书籍数量」，提前给「出版年份 + 分类」做索引，统计时不用翻全馆书。场景：聚合查询（aggregate()）中，`$`match（过滤）和 `$`sort（排序）阶段用到的字段，建索引能加速聚合过程。
+  示例：
+  聚合查询:
+  ``` 
+    db.students.aggregate([{ $match: { major: "计算机科学" } }, { $sort: { age: 1 } }])，给 major 和 age 建索引（或复合索引 { major:1, age:1 }）。
+  ```
+
+
+
+## 聚合函数与管道
 
 
 

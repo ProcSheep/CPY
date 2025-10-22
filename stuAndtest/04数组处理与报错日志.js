@@ -6,7 +6,7 @@ const path = require('path');
  *  1.记录日期快捷方法 new Date.toLocaleString(): 用于将日期时间转换为 “本地化字符串”，格式会根据运行环境的语言和地区设置自动调整
  *  2.日期格式 toISOString的返回的是UTC 时区的标准时间字符串， 中国是UTC+8
  * （格式：YYYY-MM-DDTHH:mm:ss.sssZ），例如 2024-10-17T07:35:20.123Z（Z 表示 UTC 时区）， 时区不同会造成，北京时间同一天的不同时间在utc时区被划分为2天
- * 解决方法是，手写一个new Date获取北低时间， 或者调用toLocaleString的api
+ *  解决方法是，手写一个new Date获取北京时间， 或者调用toLocaleString的api
  * 
  * 3.path.join / path.resolve 前者可以处理相对路径，后者不行
  */
@@ -39,7 +39,7 @@ function logError(errorMsg, dataId) {
   }
   // 日志内容（包含时间、数据标识、错误信息）
   const logContent = `[${new Date().toLocaleString()}] 数据ID: ${dataId} 错误: ${errorMsg}\n`;
-  // 追加到日志文件（每天一个日志文件）
+  // 追加到日志文件（每天一个日志文件）格式: 年月日T时分秒
   const logFileName = `error-${new Date().toISOString().split('T')[0]}.txt`;
   const logPath = path.join(logDir, logFileName);
   fs.appendFileSync(logPath, logContent, 'utf8');
@@ -113,7 +113,7 @@ function processAllUsers() {
 
 
 /**
- * 
+ * 手动处理年月日
  * @returns String 文件名 年月日格式
  */
 function DateFormat(){
@@ -129,4 +129,4 @@ console.log(today)
 
 
 // 启动处理
-// processAllUsers();
+processAllUsers();

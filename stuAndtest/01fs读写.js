@@ -22,11 +22,12 @@ fs.mkdirSync(pathDir, { recursive: true })
  */
 
 const stu1 = '字符串: 小明'
+
 const stu2 = {
   name: "小明"
 }
-// 要被转化内容, 筛选条件(可选,没有就写null占位) - 待, 缩进格式
-const stu2Str = JSON.stringify(stu2, null, 2)
+const stu2Str = JSON.stringify(stu2, null, 2) // 参数： 要被转化内容, 筛选条件(可选,没有就写null占位), 缩进格式
+
 const stu3 = ["小明"]
 const stu3Str = JSON.stringify(stu3, null, 2)
 
