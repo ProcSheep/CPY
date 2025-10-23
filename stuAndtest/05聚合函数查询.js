@@ -1,29 +1,29 @@
 // 书写查询语句， 后面在compasss-shell中运行
 
 // 学习 筛选$match 分组$group 输出$project
-// db.students.aggregate([
-//   // 阶段：做事，按顺序执行，可以重复，比如下面也可以继续$match
-//   {
-//     $match: {grade: "大三"}
-//   },
-//   // 性别分组 - 计算数学平均分 - 计算每组人数
-//   {
-//     $group: {
-//       _id: "$gender",
-//       avgMathScore: {$avg: "$score.math"},
-//       totalStudents: {$sum: 1}
-//     }
-//   },
-//   // 美化输出 - 确定输出项 - 别名
-//   {
-//     $project: {
-//       _id: 0, // 隐藏显示
-//       性别: "$_id", // 分组（男/女） _id -> 别名“性别”
-//       数学平均分: "$avgMathScore",
-//       学生人数: "$totalStudents"
-//     }
-//   }
-// ])
+db.students.aggregate([
+  // 阶段：做事，按顺序执行，可以重复，比如下面也可以继续$match
+  {
+    $match: {grade: "大三"}
+  },
+  // 性别分组 - 计算数学平均分 - 计算每组人数 (分组后仅剩这几个属性)
+  {
+    $group: {
+      _id: "$gender",
+      avgMathScore: {$avg: "$score.math"},
+      totalStudents: {$sum: 1}
+    }
+  },
+  // 美化输出 - 确定输出项 - 别名
+  {
+    $project: {
+      _id: 0, // 隐藏显示
+      性别: "$_id", // 分组（男/女） _id -> 别名“性别”
+      数学平均分: "$avgMathScore",
+      学生人数: "$totalStudents"
+    }
+  }
+])
 
 /**
  * 聚合操作符: $avg $sum $max $min $first $last
@@ -72,8 +72,5 @@ db.students.aggregate([
     符合条件的学生: "$students"
   }}
 ])
-
-
-
 
 

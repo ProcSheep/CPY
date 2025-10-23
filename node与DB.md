@@ -311,7 +311,7 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   ```
   > 但是不保证数据插入是否成功,所以丢失数据也不知道
 
-### 删
+### 删（可扩展）
 - 删除对标新增: `deleteOne deleteMany findOneAndDelete`, 参数也是filter和options(可选自查)，写好要删除的文档的查询条件； 额外的findOneAndDelete 返回被删除的文档，如果找不到匹配的文档，则返回 null。
 
  > 又补充接着写 ... 
@@ -652,8 +652,99 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   ``` 
     db.students.aggregate([{ $match: { major: "计算机科学" } }, { $sort: { age: 1 } }])，给 major 和 age 建索引（或复合索引 { major:1, age:1 }）。
   ```
+## 复合索引
+- ==复合索引可以更好缩小范围，查询速度会更快一些==
+- 比如下面的查询条件:
+  ```js
+    "query": {
+        "character_name": "Camila",
+        "model_id": "mistralai/mistral-nemo",
+        "character_uuid": "60828cda-56d9-4402-8f5c-aaa757a2416d",
+        "createdAt": {
+            "$gte": "2025-08-02T16:00:00.000Z",
+            "$lte": "2025-09-10T16:00:00.000Z"
+        },
+        "messageCount": {
+          "gte": 10,
+          "lte": 20
+        }
+    }
+  ```
+- ==mongoDB查询逻辑与单字段索引的问题==：当查询包含多个条件（如character_name、model_id、createdAt等），且每个字段都有单独的单字段索引时，数据库（以 MongoDB 为例）
+  - ==无法同时使用多个单字段索引==（或效率极低）： 数据库通常会选择 “最优” 的一个单字段索引（如区分度最高的字段，比如character_uuid，因为 UUID 几乎唯一），用它过滤出一部分文档后，再对剩余文档逐条检查其他条件
+- ==联合查询的优势==: `db.col.createIndex(character_uuid: 1,model_id: 1,character_name: 1,createdAt: 1)`, 为表达简便，用`{a: 1, b:1, c:1, d:1}`暂时代替, ==符合左连缀格式，如下== 
+    - 依次匹配 a->b->c->d，比如进行匹配，a=x(缩小范围) -> b=y（基于a=x查询到的数据）-> c=z(同理,基于a=x&b=y) -> d > 30 (基于a=x&b=y&c=z查的数据范围)， 通过依次匹配，最后查询d范围时的数据已经很少了，加快了速度； 而直接从a到d中随机获取一个辨识度最高的索引（比如a），进行一次性范围缩小，这样筛出的数据肯定比多次筛选的数据要多一些，然后再在这些数据中比对（bcd），整体时间会更长
+  - ==左连缀规则:==
+    - 查询时最左侧字段必须存在，即a必须存在，否则无法进入复合索引
+    - 遵循左连缀连续查询，不可以跳过（a->c->d）；少了无所谓（a->b->c, 无d）
+    - ==精确匹配可以缩小范围，但是范围匹配后续的字段无法再次缩小范围==， 
+      - 例如：查询 { a: { `$`gt: x }, b: y }, 通过a > x缩小到一个候选范围（但这个范围里a的值是不固定的）,由于a是范围查询，索引中b的排序是 “a相同前提下的排序”，现在a的取值是一个范围（不同的a），b的排序在整个候选范围内是无序的，无法通过b = y缩小范围，只能扫描候选范围，逐个判断b是否等于y。
+      - ==即只有最左字段是 “精确匹配”（=、`$`eq）时，后续字段才能通过索引排序继续缩小范围；最左字段是范围查询时，后续字段的索引相当于失效==
+- ==多个范围查询下的复合索引查询问题(不同索引顺序的效果对比)==
+  - 1. 顺序1：精确字段 → createdAt（范围） → messageCount（范围）
+    ```
+      // 索引：{ character_uuid: 1, model_id: 1, createdAt: 1, messageCount: 1 }
+    ```
+    - 先通过character_uuid和model_id（精确匹配）快速缩小范围；
+    - 再通过createdAt（范围查询）进一步缩小范围，但此时createdAt是范围查询，后续的messageCount无法利用索引
+    - 最终需要对createdAt筛选后的文档逐条检查messageCount，若该范围仍较大（==如 1 万条==），则耗时较高（==但比全表(共5万条)扫描好==）
+    - ==结论：messageCount无法利用索引，但前面的精确字段和createdAt已大幅缩小范围，不是全表扫描，只是messageCount的筛选仍有开销。==
 
+  - 2. 顺序2：精确字段 → messageCount（范围） → createdAt（范围）
+    ```
+      // 索引：{ character_uuid: 1, model_id: 1, messageCount: 1, createdAt: 1 }
+    ```
+    - 先通过character_uuid和model_id（精确匹配）快速缩小范围；
+    - 再通过messageCount（范围查询）进一步缩小范围，此时messageCount可利用索引；
+    - 最后通过createdAt（范围查询）筛选，但createdAt在范围查询字段messageCount之后，无法利用索引
+    - 最终对messageCount筛选后的文档逐条检查createdAt，若messageCount的筛选效果好（==如仅剩 100 条==），则createdAt的逐条检查开销极小
+    - ==优先让messageCount（替代$expr的核心条件）利用索引，即使createdAt无法利用索引，整体效率也更高（因为messageCount的筛选通常更关键）。==
+  - ==**3.关键总结**==
+    - 当存在多个范围查询字段时，应将筛选性更强、更核心的范围字段放在前面，让它优先利用索引，即使后续的范围字段失效，整体效率也更优：
+      - 若messageCount的筛选性更强（如能将范围从 10 万条缩小到 100 条），则让它在索引中位于createdAt之前，优先利用索引；
+      - 若createdAt的筛选性更强（如时间范围极窄，能缩小到 100 条），则让createdAt在前，messageCount在后。
+    - ==这种情况下，不会出现全表扫描，因为前面的精确字段和第一个范围字段已大幅缩小范围，只是后续的范围字段无法利用索引，需要在缩小后的范围内逐条检查（开销可控）。==
+## $expr（可扩展）
+- `$expr`可以写数据库操作符（比如$lt $gt $size $add ...)，处理复杂的，可能需要计算的，跨字段的数据比较等; ==内部运算符写法与常规不相同==
+  ```js
+     /**
+      * $expr内部的操作符， 处理复杂的，可能需要计算的，跨字段的数据比较等 
+          $lt: [field1, field2].   $lt: ["$score.math", "$score.english"] (field需要加$)
+      * 常规操作符，处理简单的，固定值比较，不跨字段的数据等 
+          field：字段 value： 值
+          比如: field: { $lt: value }.   price: { $lt: 200 }
+      *   
+      */
 
+      // 单个字段
+      db.students.find( {"score.math": {$gt: 85}, "score.math": {$lt: 90}} )
+
+      // 跨字段，比较不同学科成绩，数学/英语
+      db.students.find({
+        $expr: {
+          $lt: ["$score.math","$score.english"] // 数学 < 英语
+        }
+      })
+  ```
+- ==需要注意的点==
+  - ==$expr内部的操作运算符: 形如$size这种需要计算的==，如果针对大体量数据查询，会在每个符合条件的数据中进行运算，比如下面的数据$messages是一个数组，那么在进行查询比较时，会对每条数据的messages数组长度进行获取，然后进行比对，==这是很耗时的==
+  ```js
+    "query": {
+      "createdAt": {
+          "$gte": "2025-01-01T16:00:00.000Z",
+          "$lte": "2025-10-20T16:00:00.000Z"
+      },
+      "$expr": {
+          "$gt": [
+              {
+                  "$size": "$messages"
+              },
+              1
+          ]
+      }
+    }
+  ```
+  - ==但是针对友好型操作符，比如比较操作符 $lt(e)/$gt(e)是可以利用索引的==，只要查询字段（createAt）上有索引。只有当字段无索引时，才会触发全表扫描（逐条检查createdAt是否在范围内）, 因为时间字段createAt有索引， 所以mongodb查数据时，会根据索引快速找到createdAt大于等于起始时间的第一个位置和createdAt小于等于结束时间的最后一个位置，然后索引会直接返回这两个位置之间的所有文档，无需扫描整个集合； 这类似于在一本按时间排序的日志中，通过目录直接翻到 “2025-01-01” 到 “2025-10-20” 的页码范围，而不是逐页查找。
 
 ## 聚合函数与管道
 

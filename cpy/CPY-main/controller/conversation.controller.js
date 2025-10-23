@@ -13,27 +13,32 @@ module.exports = {
         createdAtEnd,
         messagesCount,
         group,
-        checked,
-        ab_test_group,
+        // checked,
+        // ab_test_group,
         ...filters
+        /**
+         * model_id
+         * ConversaionId
+         * 
+         */
     } = req.body;
 
     const query = { ...filters };
     
     // 处理用户筛选数据
     let userQuery = {}
-    if (ab_test_group) {
-        userQuery.ab_test_group = ab_test_group
-    }
+    // if (ab_test_group) {
+    //     userQuery.ab_test_group = ab_test_group
+    // }
 
-    if(checked) {
-      // 初始化createdAt为一个空对象，用于存储时间筛选条件
-      userQuery.createdAt = {};
-      // 添加大于等于条件：筛选创建时间晚于或等于createdAtStart的记录
-      userQuery.createdAt.$gte = new Date(createdAtStart);
-      // 添加小于等于条件：筛选创建时间早于或等于createdAtEnd的记录
-      userQuery.createdAt.$lte = new Date(createdAtEnd);
-    }
+    // if(checked) {
+    //   // 初始化createdAt为一个空对象，用于存储时间筛选条件
+    //   userQuery.createdAt = {};
+    //   // 添加大于等于条件：筛选创建时间晚于或等于createdAtStart的记录
+    //   userQuery.createdAt.$gte = new Date(createdAtStart);
+    //   // 添加小于等于条件：筛选创建时间早于或等于createdAtEnd的记录
+    //   userQuery.createdAt.$lte = new Date(createdAtEnd);
+    // }
     // 整体效果：当checked为真时，会筛选出创建时间在createdAtStart到createdAtEnd这个时间区间内的记录
 
      // 添加 createdAt 筛选条件
@@ -86,7 +91,10 @@ module.exports = {
     const conversations = await Conversation.find(query)
       .sort(sort)
       .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      // .explain("executionStats")
+      
+    // console.log("是否全表（COLLSCAN/ IXSCAN索引）",conversations.executionStats); 
 
     // 获取总条数
     // const total = await Conversation.countDocuments(query);
@@ -103,7 +111,8 @@ module.exports = {
     res.json({
       result,
       reqBody: req.body,
-      query
+      query,
+      // queryRes: conversations.executionStats.executionStages
     })
 
     // return result;
