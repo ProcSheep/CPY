@@ -433,6 +433,7 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   - ==`$and` 可省略的场景：当多个条件用逗号分隔时，默认就是“与”逻辑（如 `{ a: 1, b: 2 }` 等价于 `{ $and: [ {a:1}, {b:2} ] }`）==。
   - `$not` 作用于**整个条件**，而非单个字段（例如可用于否定正则表达式匹配）。
   - 复杂查询中可嵌套使用逻辑运算符（如 `$and` 中包含 `$or`），实现多维度条件判断。
+### 查-操作符（待）
 
 ### 改
 - 1.`db.collection.updateOne()`: 参数为 query(条件)，update(更新操作符+更新内容) options（更新选项）
@@ -534,6 +535,7 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     ```
   - 2.3 数组操作符 `$push $pop $pull $addToSet` .....
   - 2.4 条件操作符 `$setOnInsert $currentDate` ..... 
+### 改-操作符（待）
 
 ## 排序与分页
 - 排序语法： `db.collection.find({...}).sort({ field1: 1, field2: -1 })`
@@ -545,6 +547,11 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     // 跳过前 10 个文档(documnet,即10行数据)，返回接下来的 10 个文档
     db.myCollection.find().skip(10).limit(10);
   ```
+## regex/options
+- 拓展的查询操作符
+
+
+
 ## 索引
 - 可以把 MongoDB 的索引理解成 图书馆的「图书目录」，这样就很好懂了：
 - ==1.什么是索引？==
@@ -1174,6 +1181,33 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     { $count: "结果字段名" }
   ```
 - $count 是一个用于统计文档数量的阶段操作，它会返回一个包含单个字段（默认名为 count）的文档，==该字段的值为**经过管道前面阶段处理后剩余**的文档总数(也可以直接获取未筛选的全部字段)==
+## exists
+- ==`$`exists 是一个查询操作符，用于判断文档中是否存在指定字段（无论该字段的值是什么，包括 **null**）==。它常用于筛选包含或不包含特定字段的文档，是处理动态 schema 或可选字段的重要工具
+- 基本语法：
+  ```js
+    { 字段名: { $exists: <boolean> } }
+  ```
+- 核心特点
+  - 字段存在性判断：仅关注字段是否存在，不关心字段的值（即使值为 null，只要字段存在，就会被 $exists: true 匹配）。
+  - ==与 null 的区别==：{ field: null } 会匹配 “字段值为 null 或 字段不存在” 的文档；而 `{ field: { $exists: true, $eq: null } }` 才会精准匹配 “字段存在且值为 null” 的文档（需结合 `$`eq）。
+  - 适用所有字段类型：无论字段是字符串、数字、数组还是对象，`$`exists 都能判断其存在性。
+- 1.存在与否的匹配(包括null)
+  ```js
+    // 查询包含 age 字段的文档（无论 age 值是什么，包括 null）
+    db.users.find({ age: { $exists: true } });
+    // 查询不包含 email 字段的文档, 慎用， 全表扫描
+    db.users.find({ email: { $exists: false } });
+  ```
+- 2.精准匹配只有null的字段  
+  ```js
+    // 需同时满足：字段存在（$exists: true）且值为 null（$eq: null）
+    db.users.find({ age: { $exists: true, $eq: null } });
+  ```
+- 与索引结合使用
+- `$`exists 可以与索引配合，但需注意索引类型对查询效率的影响：
+  - 普通索引：若字段上有普通索引，`{ field: { $exists: true } }` 会扫描整个索引（因索引仅包含有该字段的文档），效率高于全表扫描。
+  - 稀疏索引：稀疏索引（sparse: true）仅包含有该字段的文档，因此 { field: { `$`exists: true } } 会高效命中稀疏索引。
+  - ==**`$`exists: false：查询 “不包含字段” 的文档时，无法使用索引（因索引不存储 “不存在的字段” 信息），会触发全表扫描，需谨慎使用（尤其大集合）**==。
 ## push与unwind
 - ==接着深入，整体查询语句==：
   ```js
@@ -1337,6 +1371,11 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
 - ==与 SQL JOIN 的区别==
   - ==$lookup 仅支持类似 LEFT JOIN 的逻辑==：即使目标集合无匹配文档，当前文档仍会保留，关联结果为 empty 数组。
   - ==结果格式不同==：$lookup 将关联文档嵌入当前文档的数组字段中，而 SQL JOIN 会将结果展平为多列。
+
+## replaceRoot(待)
+- 把一个属性提到根部，并且删除其他属性
+
+
 ## 视图
 - 视图（View） 是基于一个或多个集合的查询结果构建的虚拟集合，它本身不存储实际数据，而是动态计算并返回底层集合的数据。视图的作用类似于 SQL 中的视图，==主要用于简化复杂查询、封装数据逻辑或限制数据访问范围==
 - 核心特性
@@ -1399,7 +1438,7 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     db.getCollectionInfos({ name: "beijing_users" })
     db.beijing_users.drop()
   ```
-## exists ?
+ 
 # node-fs
 ## 创建与读写
 - 中游文件夹的自动创建

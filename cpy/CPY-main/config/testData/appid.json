@@ -1,0 +1,73 @@
+[
+  {
+    "_id": {
+      "$oid": "68e6fb3564338585b0465e59"
+    },
+    "id": "6753701106",
+    "appId": "com.linquist.motorlogbook",
+    "title": "MotorLogBook",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/f5/22/2d/f5222d29-862d-6b27-c1be-8a1304629df9/mlb-0-0-1x_U007ephone-0-1-85-220.png/100x100bb.png",
+    "url": "https://apps.apple.com/us/app/motorlogbook/id6753701106?uo=2",
+    "price": "1.99",
+    "currency": "USD",
+    "free": "false",
+    "description": "MotorLogBook is a replacement for your vehicle binders!  Add your vehicles, a maintenance items.  Easily browse through records and export them for safe keeping.",
+    "developer": "Kristopher Linquist",
+    "developerUrl": "https://apps.apple.com/us/developer/kristopher-linquist/id921302972?uo=2",
+    "developerId": "921302972?uo=2",
+    "genre": "Lifestyle",
+    "genreId": "6012",
+    "released": "2025-10-08T00:00:00-07:00",
+    "time": "2025-10-09 00:00:53",
+    "sort": 43,
+    "collection_name": "TOP_PAID_IOS",
+    "__v": 0,
+    "createdAt": {
+      "$date": "2025-10-09T00:00:53.824Z"
+    },
+    "updatedAt": {
+      "$date": "2025-10-09T00:00:53.824Z"
+    },
+    "released_time": {
+      "$date": "2025-10-08T07:00:00.000Z"
+    },
+    "data_time": {
+      "$date": "2025-10-09T00:00:53.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "68e6fb9564338585b046909b"
+    },
+    "id": "6753686972",
+    "appId": "com.mah.v0y4j3rr04d",
+    "title": "VoyagerRoad",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/af/d3/78/afd378d7-cf1f-7707-ceb4-c14f105e9b00/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/100x100bb.png",
+    "url": "https://apps.apple.com/us/app/voyagerroad/id6753686972?uo=2",
+    "price": "0",
+    "currency": "USD",
+    "free": "true",
+    "developer": "Mahiz Jaisha",
+    "developerUrl": "https://apps.apple.com/us/developer/mahiz-jaisha/id1844410656?uo=2",
+    "developerId": "1844410656?uo=2",
+    "genre": "Travel",
+    "genreId": "6003",
+    "released": "2025-10-07T06:41:26-07:00",
+    "time": "2025-10-09 00:02:29",
+    "sort": 2,
+    "collection_name": "NEW_FREE_IOS",
+    "__v": 0,
+    "createdAt": {
+      "$date": "2025-10-09T00:02:29.612Z"
+    },
+    "updatedAt": {
+      "$date": "2025-10-09T00:02:29.612Z"
+    },
+    "released_time": {
+      "$date": "2025-10-07T13:41:26.000Z"
+    },
+    "data_time": {
+      "$date": "2025-10-09T00:02:29.000Z"
+    }
+  }
+]
