@@ -652,7 +652,7 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   ``` 
     db.students.aggregate([{ $match: { major: "计算机科学" } }, { $sort: { age: 1 } }])，给 major 和 age 建索引（或复合索引 { major:1, age:1 }）。
   ```
-## 复合索引
+### 复合索引
 - ==复合索引可以更好缩小范围，查询速度会更快一些==
 - 比如下面的查询条件:
   ```js
@@ -720,12 +720,371 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   - 第三步：计算两个结果集的交集（通过 _id 匹配），得到同时满足两个条件的文档 _id 列表。
   - 文档获取: 根据交集得到的 _id 列表，到集合中读取完整的文档数据（即 fetch 阶段）。
 
-## 多键索引（待）
-- 对数组字段建立索引 比如messages， 还可以对数组内某个字段建立索引， 比如message.content
-  `db.inventory.createIndex` 通过explain()可以看是否用到了索引, 然后查询数组内数据会利用索引加快速度
+### 多键索引
+- 多键索引（Multikey Index） 是一种特殊的索引类型，==用于优化对数组字段或包含数组元素的文档的查询性能==。当索引字段的值为数组时，数据库会为数组中的每个元素单独创建索引条目，从而允许通过数组中的任意元素快速匹配和查询文档
+  - 针对数组字段：多键索引仅适用于字段值为数组的场景（如 tags: ["js", "node", "db"]）。
+  - 元素级索引：数据库会为数组中的每个元素生成独立的索引项，而非将整个数组作为单一键值
+- 例如：
+  ```json
+    {
+      _id: 1,
+      name: "Node.js 教程",
+      tags: ["javascript", "node", "backend"]  // 数组字段
+    }
+  ```
+- 查询加速：
+  ```js
+    db.articles.find({ tags: "node" });  // 命中多键索引
+  ```
+### 全文索引
+- 对文字进行索引，根据文字查询含有这个文字的文档，对英文友好，不支持中文，限制大
+- 全文索引会对字段中的==文本（**英文**）进行分词处理（按空格、标点等分隔为单词）==， 内置对常见停用词（如 “the”“and”“的” 等无意义词汇）的过滤
+- 创建索引(可以多个)
+  ```js
+    // 对 articles 集合的 content 字段创建全文索引
+    db.articles.createIndex({ content: "text" });
+  ```
+- 全文索引
+  ```js
+    // 搜索包含 "MongoDB" 或 "索引" 的文档
+    db.articles.find({
+      $text: { $search: "MongoDB 索引" }
+    });
+
+    // 搜索包含 "MongoDB" 但不包含 "基础" 的文档（- 表示排除）
+    db.articles.find({
+      $text: { $search: "MongoDB -基础" }
+    });
+
+    // 搜索必须同时包含 "MongoDB" 和 "优化" 的文档（"" 表示精确匹配短语）
+    db.articles.find({
+      $text: { $search: "\"MongoDB 优化\"" }
+    });
+  ```
+### 哈希索引(待)
+- 哈希索引（Hashed Index） 是一种特殊的索引类型，它通过对字段值进行哈希计算（生成固定长度的哈希值）来构建索引，而非直接使用字段的原始值。哈希索引主要用于优化基于分片键的均匀数据分布，==尤其在分片集群中发挥重要作用==。
+
+### 通配符索引
+- 针对不确定的属性建立索引，以匹配“更多”的情况，这种数据库内数据的属性不统一，==特别适合处理 schema 不固定的文档（如包含大量动态键的 JSON 数据）==
+- 比如，数据库内字段数据每一个属性都不同
+  ```json
+    // user.xxx不统一
+    {
+      _id: 001,
+      user: {
+        "name": "kkk",
+        "age": 19
+      }
+    },
+    {
+      _id: 002
+      user: {
+        "classes": 1,
+        "hobby": "goo"
+      }
+    }
+  ```
+- 通配符索引通过 $** 表示匹配任意字段或嵌套路径，基本语法：
+  ```js
+    // 匹配集合中所有字段（包括嵌套字段）
+    db.collection.createIndex({ "$**": 1 });
+
+    // 匹配特定前缀的字段（如以 "user." 开头的嵌套字段：user.name、user.age 等）
+    db.collection.createIndex({ "user.$**": 1 });
+
+    // 匹配数组中的所有元素（如 tags 数组的每个元素）
+    db.collection.createIndex({ "tags.$**": 1 });
+  ```
+- ==使用场景==
+  - 1. 动态字段查询
+    当文档包含大量动态生成的字段（如用户自定义属性），且需要根据这些字段查询时，通配符索引可避免为每个字段单独创建索引。
+    示例：文档包含动态属性 attr1、attr2...，查询 attr1: "value" 时，通配符索引可加速查询：
+    ```js
+      // 创建匹配所有动态属性的通配符索引
+      db.products.createIndex({ "attrs.$**": 1 });
+
+      // 查询 attrs 下的任意字段（如 attrs.color = "red"）
+      db.products.find({ "attrs.color": "red" }); // 命中通配符索引
+    ```
+  - 2. 嵌套结构查询
+      对嵌套层级不固定的字段（如多级嵌套的 address），通配符索引可匹配所有子字段，无需手动指定每个嵌套路径。
+      示例：匹配 address 下的所有子字段（city、province、street 等）
+      ```js
+        db.users.createIndex({ "address.$**": 1 });
+
+        // 查询 address.city = "Shanghai"
+        db.users.find({ "address.city": "Shanghai" }); // 命中索引
+
+        // 查询 address.street = "Main St"（即使 street 字段不常出现）
+        db.users.find({ "address.street": "Main St" }); // 同样命中索引
+      ```
+  - 3. 数组元素查询
+      对数组中的元素（尤其是动态数组），通配符索引可匹配数组中的所有元素，支持基于数组元素的查询。
+      示例：匹配 tags 数组中的任意元素：
+      ```js
+        db.articles.createIndex({ "tags.$**": 1 });
+
+        // 查询 tags 数组中包含 "mongodb" 的文档
+        db.articles.find({ "tags": "mongodb" }); // 命中索引
+      ```
+      > 和多值索引不同的，通配符是针对数组内的所有数据，而多值索引是精确的，针对单个字段的，两者本质不同，通配符更常用于动态变化的字段
+- ==注意：不兼容==
+  - 1.==不支持联合索引，只能单独使用==
+  - 2.不支持排序，索引体积很大
+  - 3。属于稀疏索引
+
+### 唯一属性索引
+- 用于强制指定字段（或组合字段）的值在集合中唯一不重复，==防止插入或更新时出现重复数据==，类似关系型数据库中的 “唯一约束”。
+- 特殊地
+  - 支持多字段组合：可对多个字段创建复合唯一索引，强制组合值的唯一性
+  - 空值处理：==字段值为 null 时，唯一索引会将 null 视为一个有效值，因此整个集合中只能有一个文档的该字段为 null==（如需允许多个 null，需特殊处理）
+- 创建复合唯一索引（单个的留一个即可）： 
+  ```js
+    // 加属性unique为true即可
+    db.collection.createIndex({ 字段名: 1, 字段2: 1 }, { unique: true });
+  ```
+### 部分索引
+- 对部分符合要求的数据添加索引，不是对所有数据都添加索引
+  ```js
+    db.collection.createIndex(
+      { 索引字段: 排序方向 }, // 索引的字段和排序（如单字段、复合字段）
+      { 
+        partialFilterExpression: { 过滤条件 } // 仅对满足该条件的文档创建索引
+      }
+    );
+  ```
+  > 过滤条件可以使用的表达式有：`$eq、$gt、$lt、$in、$exists` 等操作符(不支持 `$expr、$where`) 等
+- 假设集合 orders 存储订单数据，其中 status 字段可能为 pending（待处理）、completed（已完成）、cancelled（已取消），==而业务中 90% 的查询都针对 status: "completed" 的订单==
+- 只为 status: "completed" 的文档创建索引
+  ```js
+    db.orders.createIndex(
+      { orderNo: 1 }, // 对 orderNo 字段创建索引
+      { 
+        partialFilterExpression: { status: "completed" } // 仅包含 status 为 completed 的文档
+      }
+    );
+  ```
+- 根据条件判断索引是否生效
+  ```js
+    // 命中部分索引（查询条件匹配 partialFilterExpression）
+    db.orders.find({ status: "completed", orderNo: "ORD123" });
+    // 不命中部分索引（status 不是 completed）
+    db.orders.find({ status: "pending", orderNo: "ORD456" });
+  ```
+- ==高级用法：结合唯一索引==
+- 部分索引可与唯一索引结合，仅对符合条件的文档强制唯一性。例如：“仅对 isVerified: true 的用户强制 email 唯一（未验证用户允许重复邮箱）”
+  ```js
+    db.users.createIndex(
+      { email: 1 },
+      {
+        unique: true, // 唯一约束
+        partialFilterExpression: { isVerified: true } // 仅对已验证用户生效
+      }
+    );
+  ```
+- ==适用场景==
+  - 高频查询的子集：当查询集中在集合的某个子集（如 “已激活用户”“已完成订单”），为该子集创建部分索引，避免为全集合建索引的冗余。
+  - 非空字段索引：对存在 null 或缺失值的字段，仅为非空值创建索引（通过 { field: { $exists: true } } 过滤），减少无效索引条目。
+  - 示例：只为存在 phone 字段的用户创建索引：
+  ```js
+    db.users.createIndex(
+      { phone: 1 },
+      { partialFilterExpression: { phone: { $exists: true } } }
+    );
+  ```
+### 稀疏索引
+- 稀疏索引（Sparse Index） 是一种仅对包含指定索引字段的文档创建索引条目的特殊索引类型。==它会自动忽略那些不包含该字段（或字段值为 null）的文档，从而减少索引的存储体积==，优化针对 “存在特定字段” 的查询性能; ==功能单一：稀疏索引的过滤逻辑固定（仅基于字段是否存在），无法自定义其他过滤条件(这一点与部分索引不同)==
+- ==稀疏索引和部分索引都能缩小索引覆盖范围，但核心差异在于过滤逻辑, **注意：部分索引的功能完全覆盖稀疏索引（例如，partialFilterExpression: { phone: { $exists: true } } 等价于稀疏索引），因此 MongoDB 推荐优先使用部分索引，除非需要兼容旧版本或场景极简单。**==
+
+### TTL索引
+- TTL 索引（Time-To-Live Index） 是一种特殊的单字段索引，用于自动删除集合中 “过期” 的文档。==它通过指定字段的时间值（日期类型），让 MongoDB 定期清理超过预设时间的文档，无需手动编写删除逻辑==。
+- ==核心特性==
+  - 自动过期删除：基于索引字段的时间值，文档超过指定 “存活时间（TTL）” 后会被自动删除。
+  - 仅支持日期字段：==**索引字段必须是 Date 类型（如 timestamp 数字需转为 Date）**==（如 createdAt: new Date()）或包含日期的数组（仅数组第一个日期生效）。
+  - 后台自动执行：MongoDB 有专门的后台线程（默认每 60 秒运行一次）检查并删除过期文档，不影响前台查询性能。
+  - 不可变 TTL 配置：==创建索引后，无法修改 TTL 时间，需删除旧索引重新创建==。
+- ==1.文档创建后 N 秒自动删除==
+  - 场景：存储临时验证码，10 分钟（600 秒）后自动失效。
+  ```js
+    // 1. 创建 TTL 索引（expireAfterSeconds = 600 秒）
+    db.codes.createIndex({ createdAt: 1 }, { expireAfterSeconds: 600 });
+
+    // 2. 插入文档（createdAt 为当前时间）
+    db.codes.insertOne({
+      code: "123456",
+      userId: 101,
+      createdAt: new Date() // 日期字段，用于计算过期时间
+    });
+
+    // 效果：文档插入 10 分钟后，会被 MongoDB 自动删除
+  ```
+- =2.文档在指定时间点自动删除==
+  - 场景：预约提醒，在 remindAt 时间点后自动删除提醒记录。
+  ```js
+    // 1. 创建 TTL 索引（expireAfterSeconds = 0，依赖字段本身的日期）
+    db.reminders.createIndex({ remindAt: 1 }, { expireAfterSeconds: 0 });
+
+    // 2. 插入文档（remindAt 为未来时间点）
+    db.reminders.insertOne({
+      userId: 101,
+      content: "赚够一个亿",
+      remindAt: new Date("2099-12-01T10:00:00") // 明确的过期时间点
+    });
+
+    // 效果：到 2099-12-01 10:00 后，文档自动删除
+  ```
+- 注意事项：
+  - 1.==仅支持 Date 类型字段==或包含 Date 的数组（数组仅第一个日期生效），不支持字符串、数字等类型（==如 timestamp 数字需转为 Date==）
+  - 2.==复合索引不支持==：TTL 索引只能是单字段索引，无法创建复合 TTL 索引（如 { userId: 1, createdAt: 1 } 不能设为 TTL 索引）
+- ==适用场景==
+  - 临时数据存储：验证码、会话信息、临时缓存（如登录态，2 小时过期）。
+  - 自动清理日志：应用日志、操作记录，保留 7 天后自动删除。
+  - 定时任务记录：一次性提醒、任务调度记录，执行后自动清理。
+### 隐藏索引
+- 它的核心特点是索引存在但不会被查询优化器自动使用，仅在显式指定时生效。这种特性主要用于索引的 ==“灰度测试” 或 “安全下线”==，避免直接删除索引带来的风险。
+- 1.创建隐藏索引
+  - 创建时通过 hidden: true 标记为隐藏索引：
+  ```js
+    db.collection.createIndex(
+      { 字段名: 1 }, // 索引字段
+      { hidden: true } // 标记为隐藏
+    );
+  ```
+- 2.切换索引的隐藏状态(反向切同理)
+  - 通过 collMod 命令修改已有索引的隐藏属性（无需删除重建）： 
+  ```js
+    // 将索引从隐藏改为可见
+    db.runCommand({
+      collMod: "collectionName", // 集合名
+      index: {
+        name: "索引名称", // 索引的名称（如 "字段名_1"）
+        hidden: false // false 表示可见，true 表示隐藏
+      }
+    });
+  ```
+- ==假设集合 products 有一个隐藏索引 { category: 1 }==
+  - 1.默认查询不使用隐藏索引
+    ```js
+      // 查询不会自动使用隐藏的 category 索引
+      db.products.find({ category: "electronics" });
+    ```
+  - 2.显式强制使用隐藏索引：
+    ```js 
+      // 通过 hint() 强制使用隐藏索引（需指定索引名称或字段）
+      db.products.find({ category: "electronics" }).hint({ category: 1 });
+    ```
+  - 3.验证索引是否隐藏：  
+    ```js
+      // 查看索引信息，hidden 字段为 true 表示隐藏
+      db.products.getIndexes();
+    ```
+- 适用场景
+  - ==索引下线前验证==：计划删除某个索引时，先将其隐藏，观察查询性能是否下降（若无影响，说明索引无用，可安全删除）。
+  - ==新索引灰度测试==：创建新索引后先隐藏，通过 hint() 对部分查询测试其性能，确认有效后再设为可见。
+  - 避免干扰查询计划：某些索引可能在特定场景下被优化器错误选择，隐藏后可排除干扰。
+- 注意事项
+  - 维护成本：隐藏索引仍会占用存储空间，且随数据更新而更新，若确认无用需及时删除，避免浪费资源。
+  - 与删除的区别：隐藏索引是 “暂时不用”，删除是 “永久移除”；隐藏可恢复，删除需重建。
+  - 不支持的索引类型：地理空间索引（2d、2dsphere）和文本索引（text）目前不支持隐藏属性。
+
+## **explain执行计划(*)**
+- ==mongodb提供了explain来帮助我们检测模型查询的效果（mysql同理）==，尤其
+  - ==查询是否应用索引 - stage==
+  - 索引是否减少了扫描的数量
+  - 是否存在低效的查询
+- explain() 是附加在查询操作后的方法， 比如 `find()、aggregate()、update()、deleteOne()`
+  ```js
+    // 对查询操作使用 explain
+    db.collection.find(<query>).explain([verbosity])
+
+    // 对聚合操作使用 explain
+    db.collection.aggregate(<pipeline>).explain([verbosity]);
+  ```
+- verbosity: 
+  - queryPlanner（默认）：返回查询计划的核心信息（如选择的索引、扫描方式等），不包含执行统计。
+  - ==executionStats==：在 queryPlanner 基础上，增加实际执行的统计数据（==如扫描文档数、执行时间等==）
+  - allPlansExecution：返回所有候选查询计划的执行统计（用于分析 MongoDB 为何选择某一计划）
+- 例：executionStats数据展示：
+  ```json
+    "executionStats": {
+        "executionSuccess": true,
+        "nReturned": 3, // 返回数据
+        "executionTimeMillis": 1, // 总执行时间 毫秒
+        "totalKeysExamined": 0, // 索引扫描次数(为0代表索引未被使用，需优化)
+        "totalDocsExamined": 3, // 文档扫描次数
+        "executionStages": {
+            "isCached": false,
+            "stage": "SORT", // 阶段
+            "nReturned": 3,
+            "executionTimeMillisEstimate": 0, // 检索文档耗时
+            "works": 8,
+            "advanced": 3,
+            "needTime": 4,
+            "needYield": 0,
+            "saveState": 0,
+            "restoreState": 0,
+            "isEOF": 1,
+            "sortPattern": {
+                "createdAt": -1
+            },
+            "memLimit": 104857600,
+            "limitAmount": 10,
+            "type": "simple",
+            "totalDataSizeSorted": 21332,
+            "usedDisk": false,
+            "spills": 0,
+            "spilledRecords": 0,
+            "spilledBytes": 0,
+            "spilledDataStorageSize": 0,
+            "inputStage": { // 嵌套阶段 描述子stage，为父stage提供文档和索引
+                "stage": "COLLSCAN", // 阶段
+                "filter": { // 查询语句
+                    "$and": [
+                        {
+                            "createdAt": {
+                                "$lte": "2025-10-20T16:00:00.000Z"
+                            }
+                        },
+                        {
+                            "createdAt": {
+                                "$gte": "2025-01-01T16:00:00.000Z"
+                            }
+                        }
+                    ]
+                },
+                "nReturned": 3, // 返回数据数
+                "executionTimeMillisEstimate": 0, // 检索文档耗时
+                "works": 4,
+                "advanced": 3,
+                "needTime": 0,
+                "needYield": 0,
+                "saveState": 0,
+                "restoreState": 0,
+                "isEOF": 1,
+                "direction": "forward",
+                "docsExamined": 3
+            }
+        },
+        "allPlansExecution": []
+    },
+  ```
+- ==重要信息解析==
+- 1.stage: 
+  - ==COLLSCAN==：全集合扫描（未使用索引，性能差，需优化）。
+  - ==IXSCAN==：索引扫描（使用索引，性能较好）。
+  - FETCH：根据索引（子stage）结果读取文档（常与 IXSCAN 配合）。
+  - LIMIT/SORT：对应查询中的 limit() 或 sort() 操作。
+- ==执行计划尽量不要出现的stage==
+  - ==collscam==： 全表扫描，代表你的查询十分低效，需要加索引或优化索引
+  - ==sort==: 查询需要对结果进行排序，但无法利用索引完成排序，只能在内存中对扫描到的文档进行排序,若排序的数据量超过内存限制（由 internalQueryExecMaxBlockingSortBytes 控制，默认 100MB），会触发磁盘临时文件排序，性能急剧下降, ==创建包含排序字段的索引（如查询条件 + 排序字段的复合索引）, 即要给查询出的结果数据字段添加索引，比如最终查询出的字段为createAt，则给这个字段添加索引，查询结束后自动根据索引排序==
+  - ==HASH_JOIN==（哈希连接）
+    含义：多集合关联查询（如 `$`lookup）时，使用哈希表进行连接，未利用索引。
+    问题：需要将关联字段的所有值加载到内存构建哈希表，数据量大时内存占用高，且连接效率低。
+    优化：为 `$`lookup 的关联字段（如 localField 和 foreignField）创建索引，使关联操作通过索引匹配（此时可能转为更高效的索引连接）。
+
 
 ## $expr（可扩展）
-- `$expr`可以写数据库操作符(比如$lt $gt $size $add ...)，处理复杂的，可能需要计算的，跨字段的数据比较等; ==内部运算符写法与常规不相同==
+- `$expr`可以写数据库操作符(比如`$lt $gt $size $add ...`)，处理复杂的，可能需要计算的，跨字段的数据比较等; ==内部运算符写法与常规不相同==
   ```js
      /**
       * $expr内部的操作符， 处理复杂的，可能需要计算的，跨字段的数据比较等 
@@ -747,7 +1106,7 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
       })
   ```
 - ==需要注意的点==
-  - ==$expr内部的操作运算符: 形如$size这种需要计算的==，如果针对大体量数据查询，会在每个符合条件的数据中进行运算，比如下面的数据$messages是一个数组，那么在进行查询比较时，会对每条数据的messages数组长度进行获取，然后进行比对，==由于无法进行索引查询，这是很耗时的==
+  - ==`$`expr内部的操作运算符: 形如`$`size这种需要计算的==，如果针对大体量数据查询，会在每个符合条件的数据中进行运算，比如下面的数据`$`messages是一个数组，那么在进行查询比较时，会对每条数据的messages数组长度进行获取，然后进行比对，==由于无法进行索引查询，这是很耗时的==
   ```js
     "query": {
       "createdAt": {
@@ -773,41 +1132,48 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   - 第一道管道（过滤）：去除大颗粒杂质（比如泥沙）→ 类似聚合中的 `$match`（筛选符合条件的文档）。
   - 第二道管道（净化）：消毒杀菌（比如加氯）→ 类似聚合中的 `$group`（分组计算）。
   - 第三道管道（过滤）：去除多余的氯和异味 → 类似聚合中的 `$project`（筛选输出字段）。
-```js
-  // 学习 筛选$match 分组$group 输出$project
-  db.students.aggregate([
-    // 阶段按顺序执行，可以重复，比如下面也可以继续$match
-    // 阶段1: 匹配
-    {
-      $match: {grade: "大三"}
-    },
-    // 按性别分组 - 内容有计算数学平均分和每组人数 (分组后仅剩这几个属性)
-    // 阶段2: 分组
-    {
-      $group: {
-        _id: "$gender",
-        avgMathScore: {$avg: "$score.math"},
-        totalStudents: {$sum: 1}
-      }
-    },
-    // 美化输出 - 确定输出项 - 别名
-    // 阶段3: 输出
-    {
-      $project: {
-        _id: 0, // 隐藏显示
-        性别: "$_id", // 分组（男/女） _id -> 别名为“性别”
-        数学平均分: "$avgMathScore", // avgMathScore -> 别名为“数学平均分”
-        学生人数: "$totalStudents"
-      }
-    }
-  ])
-```
+    ```js
+      // 学习 筛选$match 分组$group 输出$project
+      db.students.aggregate([
+        // 阶段按顺序执行，可以重复，比如下面也可以继续$match
+        // 阶段1: 匹配
+        {
+          $match: {grade: "大三"}
+        },
+        // 按性别分组 - 内容有计算数学平均分和每组人数 (分组后仅剩这几个属性)
+        // 阶段2: 分组
+        {
+          $group: {
+            _id: "$gender",
+            avgMathScore: {$avg: "$score.math"},
+            totalStudents: {$sum: 1}
+          }
+        },
+        // 美化输出 - 确定输出项 - 别名
+        // 阶段3: 输出
+        {
+          $project: {
+            _id: 0, // 隐藏显示
+            性别: "$_id", // 分组（男/女） _id -> 别名为“性别”
+            数学平均分: "$avgMathScore", // avgMathScore -> 别名为“数学平均分”
+            学生人数: "$totalStudents"
+          }
+        }
+      ])
+    ```
 - ==其他管道阶段比如有==
+  - $count: 
   - $limit：用来限制MongoDB聚合管道返回的文档数。
   - $skip：在聚合管道中跳过指定数量的文档，并返回余下的文档。
   - $unwind：将文档中的某一个数组类型字段拆分成多条，每条包含数组中的一个值
   - $sort：将输入文档排序后输出
 - ==MongoDB 中聚合(aggregate)主要用于处理数据(诸如统计平均值，求和等)，并返回计算后的数据结果, ==所以可以使用各种计算的操作符，比如常见的`$sum $avg $max $min $first $last $push $addToSet`等==
+## count
+- 计算字段的数量
+  ```json
+    { $count: "结果字段名" }
+  ```
+- $count 是一个用于统计文档数量的阶段操作，它会返回一个包含单个字段（默认名为 count）的文档，==该字段的值为**经过管道前面阶段处理后剩余**的文档总数(也可以直接获取未筛选的全部字段)==
 ## push与unwind
 - ==接着深入，整体查询语句==：
   ```js
@@ -901,14 +1267,139 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     }
   ```
   > 针对拆分后的数组单个数据进行sort操作，排序结束后重新组合回数组格式，整理输出格式输出
-  > ==数组就像「打包好的一捆文件」，如果要对里面的「单个文件内容」进行操作（比如统计、排序），必须先把捆解开（$unwind），才能逐个处理==
+  > ==数组就像「打包好的一捆文件」，如果要对里面的「单个文件内容」进行操作（比如统计、排序），必须先把捆解开（`$`unwind），才能逐个处理==
   > ==如果想不明白拆分数组的格式以及如何对数组内数据进行操作可以先打印下unwind后的查询结果，然后继续思考下一步==
 - ==拓展1：大体量数据操作（20w）==
-  - 耗时的核心不是 $unwind 本身，而是以下两个关键问题：
-      - 数据膨胀效应：如果每条文档的数组字段有 N 个元素，$unwind 后会生成「20 万 × N」条文档（比如 N=10，就变成 200 万条），后续聚合阶段（$group $sort）需要处理的数据量暴增；
-      - 缺少索引支持：如果 $match 阶段没有筛选条件（或筛选条件无索引），会对全集合拆分数组，相当于 “遍历 20 万条文档 + 拆分 200 万条数据”
-    > 核心： 1.合理的索引 + $match操作缩小要拆分的范围 2.避免不必要的拆分，只有必须要计算数组内数据时才可拆分
+  - 耗时的核心不是 `$`unwind 本身，而是以下两个关键问题：
+      - 数据膨胀效应：如果每条文档的数组字段有 N 个元素，`$`unwind 后会生成「20 万 × N」条文档（比如 N=10，就变成 200 万条），后续聚合阶段（`$`group `$`sort）需要处理的数据量暴增；
+      - 缺少索引支持：如果 `$`match 阶段没有筛选条件（或筛选条件无索引），会对全集合拆分数组，相当于 “遍历 20 万条文档 + 拆分 200 万条数据”
+    > 核心： 1.合理的索引 + `$`match操作缩小要拆分的范围 2.避免不必要的拆分，只有必须要计算数组内数据时才可拆分
 - 拓展2: 查询中有skip/limit阶段操作，这里注，同理的skip与limit也无法对整个数组进行操作，所以要在拆分时进行操作，所以这2条语句就在第一次拆分unwind与第二次集合push之间
+## lookup
+- `$lookup`:==类似mysql连表查询+外键这种的概念实现,同样可写多个，每写一个就多加一个关联的字段和数据==
+  ```js
+    {
+      $lookup: {
+        from: "关联的目标集合名称",       // 必选，要关联的集合
+        localField: "当前集合中的关联字段", // 必选，当前集合中用于匹配的字段
+        foreignField: "目标集合中的关联字段", // 必选，目标集合中用于匹配的字段
+        as: "存储关联结果的数组字段名" // 必选，关联结果将以数组形式存入该字段
+      }
+    }
+  ```
+- 例如： usr表 关联 order表，关联键_id <---> user_id
+- user:
+  ```json
+    [
+      { _id: 101, name: "Alice", age: 25 },
+      { _id: 102, name: "Bob", age: 30 }
+    ]
+  ```
+- order:
+  ```json
+    [
+      { _id: 1, order_no: "ORD001", user_id: 101, amount: 200 },
+      { _id: 2, order_no: "ORD002", user_id: 102, amount: 300 }
+    ]
+  ```
+- 查询：
+  ```js
+    db.orders.aggregate([
+      {
+        $lookup: {
+          from: "users",       // 关联 users 集合
+          localField: "user_id", // 订单集合的关联字段是 user_id
+          foreignField: "_id",   // 用户集合的关联字段是 _id
+          as: "user_info"        // 关联结果存入 user_info 数组
+        }
+      }
+    ])
+  ```
+- 查询结果: 
+  ```js
+    [
+      {
+        _id: 1,
+        order_no: "ORD001",
+        user_id: 101,
+        amount: 200,
+        user_info: [{ _id: 101, name: "Alice", age: 25 }] // 匹配到的用户,新的关联字段，内部是关联数据
+      },
+      {
+        _id: 2,
+        order_no: "ORD002",
+        user_id: 102,
+        amount: 300,
+        user_info: [{ _id: 102, name: "Bob", age: 30 }]
+      }
+    ]
+  ```
+- ==与 SQL JOIN 的区别==
+  - ==$lookup 仅支持类似 LEFT JOIN 的逻辑==：即使目标集合无匹配文档，当前文档仍会保留，关联结果为 empty 数组。
+  - ==结果格式不同==：$lookup 将关联文档嵌入当前文档的数组字段中，而 SQL JOIN 会将结果展平为多列。
+## 视图
+- 视图（View） 是基于一个或多个集合的查询结果构建的虚拟集合，它本身不存储实际数据，而是动态计算并返回底层集合的数据。视图的作用类似于 SQL 中的视图，==主要用于简化复杂查询、封装数据逻辑或限制数据访问范围==
+- 核心特性
+  - 虚拟集合：视图不存储数据，数据来源于底层集合（或其他视图）的查询结果，每次访问视图时都会动态计算。
+  - 基于聚合管道：视图由一个聚合管道（aggregate）定义，通过管道逻辑筛选、转换或组合底层数据。
+  - ==只读性==：视图只能用于查询（find 或聚合操作），不能执行 insert、update、delete 等写操作（写操作需直接针对底层集合）。
+  - 动态更新：底层集合的数据变化会实时反映在视图中（因为视图是动态计算的）。
+- 创建视图的语法
+  ```js
+    db.createView(
+      "视图名称",          // 必选，视图的名称
+      "底层集合名称",      // 必选，视图基于的源集合（或其他视图）
+      [聚合管道阶段],      // 必选，定义视图数据的聚合管道（如 $match、$project 等）
+      { 可选配置 }         // 可选，如默认排序规则（collation）等
+    )
+  ```
+- 存在集合user
+  ```json
+    [
+      { _id: 1, name: "Alice", age: 25, city: "Beijing", salary: 8000 },
+      { _id: 2, name: "Bob", age: 30, city: "Shanghai", salary: 12000 },
+      { _id: 3, name: "Charlie", age: 35, city: "Beijing", salary: 15000 }
+    ]
+  ```
+- 创建视图：基于user进行操作
+  ```js
+    db.createView(
+      "beijing_users",       // 视图名称
+      "users",               // 底层集合
+      [
+        { $match: { city: "Beijing" } }, // 筛选北京的用户
+        { $project: { name: 1, age: 1, _id: 0 } } // 只显示 name、age，隐藏 _id
+      ]
+    )
+  ```
+- 使用视图,和普通查询一样
+  ```js
+    db.beijing_users.find()
+  ```
+  > 之后会执行视图内的聚合阶段并输出结果
+- ==视图可以嵌套==
+  ```js
+    // 创建视图：北京的成年用户（age > 30）
+    db.createView(
+      "beijing_adults",
+      "beijing_users",       // 基于已有的 beijing_users 视图
+      [{ $match: { age: { $gt: 30 } } }]
+    )
+
+    // 查询新视图
+    db.beijing_adults.find() // 输出：{ "name": "Charlie", "age": 35 }
+  ```
+  > beijing_adults： 先执行视图beijing_users，在对结果match
+- 视图的作用： 
+  - 将常用的复杂聚合管道封装为视图，避免重复编写代码（如多阶段筛选、关联、计算的逻辑）。
+  - 数据访问控制：通过视图限制可见字段或行（如隐藏敏感字段 salary，只展示部分用户），实现数据脱敏或权限控制。
+  - 数据一致性：多个业务场景依赖相同的数据逻辑时，通过视图统一数据处理规则，避免逻辑分散和不一致。
+- 查看视图定义和删除视图
+  ```js
+    db.getCollectionInfos({ name: "beijing_users" })
+    db.beijing_users.drop()
+  ```
+## exists ?
 # node-fs
 ## 创建与读写
 - 中游文件夹的自动创建
@@ -926,7 +1417,8 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     // 不会重复创建文件夹
     fs.mkdirSync(pathDir, { recursive: true })
   ```
-  > 拓展：`path.join(a,b,c)`,单纯的字符串拼接`a/b/c`，可以没有绝对路径（__dirname），但是`path.resolve`,总会以当前文件的绝对路径为基准进行拼接，实际使用区别不大
+  > 1.拓展方法：`path.join(a,b,c)`,单纯的字符串拼接`a/b/c`，可以没有绝对路径（__dirname），但是`path.resolve`,总会以当前文件的绝对路径为基准进行拼接，实际使用区别不大
+  > 2.拓展方法：`fs.dirname(fpath)`删除`/`最后一部分,一般用于删除文件部分，例如：`a/b/c.js -> a/b`
 - 存入数据进入文件夹
   ```js
     /** 
@@ -968,6 +1460,67 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     const res = fs.readFileSync(fPath, 'utf-8')
     console.log(JSON.parse(res))
   ```
+- ==pipe==:pipe() 是流（Stream）对象的核心方法，用于将一个可读流（Readable）的数据 “管道” 到一个可写流（Writable）中，实现数据的自动传递和处理。它简化了流之间的数据传输逻辑，无需手动监听 data 和 end 事件。
+- 核心用法: `readableStream.pipe(writableStream);`
+- 简单用法: 
+  ```js
+    const fs = require('fs');
+
+    // 创建可读流（源文件）和可写流（目标文件）
+    const readStream = fs.createReadStream('source.txt');
+    const writeStream = fs.createWriteStream('target.txt');
+
+    // 通过 pipe 传递数据
+    readStream.pipe(writeStream);
+
+    // 监听完成事件
+    writeStream.on('finish', () => {
+      console.log('文件复制完成');
+    });
+  ```
+- 支持连缀写法
+  ```js
+    const fs = require('fs');
+    const zlib = require('zlib'); // 提供压缩/解压转换流
+
+    // 流程：读取文件 → 压缩 → 写入压缩文件
+    fs.createReadStream('largeFile.txt')
+      .pipe(zlib.createGzip()) // 压缩转换流
+      .pipe(fs.createWriteStream('largeFile.txt.gz'))
+      .on('finish', () => {
+        console.log('文件压缩完成');
+      });
+  ```
+- ==pipe() 不会自动处理错误，需为流单独监听 error 事件，否则错误可能导致程序崩溃==
+  ```js
+    readStream.on('error', (err) => console.error('读取错误:', err));
+    writeStream.on('error', (err) => console.error('写入错误:', err));
+  ```
+- pipe第二个参数：
+  ```js
+    readable.pipe(writable, {
+      end: true, // 默认为 true，可读流结束时自动结束可写流；设为 false 可保持可写流打开
+    });
+  ```
+- pipe连缀写入文件
+  ```js
+    const fs = require('fs');
+    const writeStream = fs.createWriteStream('combined.txt');
+
+    // 第一个文件写入后不关闭可写流
+    fs.createReadStream('file1.txt').pipe(writeStream, { end: false });
+
+    // 第一个文件写完后再写第二个文件
+    writeStream.on('unpipe', () => {
+      fs.createReadStream('file2.txt').pipe(writeStream);
+    });
+  ```
+  > ==监听 unpipe 事件的核心目的，是确保第一个可读流完全写完并断开管道后，再向同一个可写流写入第二个文件==
+
+- 当第一个流（file1.txt）通过 pipe(writeStream, { end: false }) 写入时，end: false 会让可写流在第一个流结束后保持打开（不触发 finish 事件）。
+- 但第一个流写完后，会自动与可写流断开管道连接（触发 unpipe 事件），此时可写流处于 “空闲可写入” 状态。
+- 若不监听 unpipe，直接连续调用 pipe（如 file1.pipe(ws).pipe(file2.pipe(ws))），两个可读流会同时向可写流写数据，导致文件内容错乱（比如 file1 的末尾和 file2 的开头混在一起）。
+
 ## 删除文件
 - 删除文件需要权限，设置好权限后，如下重置文件的操作
   ```js
