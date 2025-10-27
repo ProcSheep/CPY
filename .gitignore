@@ -12,6 +12,7 @@ node_modules/
 # 日志文件
 logs/
 *.log
+*.txt
 
 # 编译/打包产物
 dist/
@@ -25,5 +26,7 @@ coverage/
 .DS_Store     # Mac 系统自动生成的隐藏文件
 
 
-# 图片文件
+# 其他文件
 /cpy/CPY-main/config/imgDownload/
+/cpy/CPY-main/config/testData/addphotosByChunk
+

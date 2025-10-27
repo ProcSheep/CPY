@@ -92,7 +92,7 @@ module.exports = {
       .sort(sort)
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      // .explain("executionStats")
+      .explain("executionStats")
       
     // console.log("是否全表（COLLSCAN/ IXSCAN索引）",conversations.executionStats); 
 
@@ -112,7 +112,7 @@ module.exports = {
       result,
       reqBody: req.body,
       query,
-      // queryRes: conversations.executionStats.executionStages
+      queryRes: conversations.executionStats.executionStages
     })
 
     // return result;

@@ -13,6 +13,7 @@ const conversationRoter = require("./router/conversation.router.js")
 
 // // 4. 引入自定义业务函数
 // const Conversation = require("./models/ai_conversation.model.js")
+const aiimagesByChunk = require("./config/script/addPhotos/aiimagesByChunk.js")
 
 const app = express()
 const PORT = 4000
@@ -29,15 +30,21 @@ const init = async () => {
     console.log('连接数据库')
     await establishDbConnection()
 
-    // const conversations = await mongoose.connection.collection("conversation").find().toArray()
-
-    // 断开数据库
-    // console.log('断开数据库')
-    // await closeConnection()
+    /**
+     * 给数组aimages提供分片处理，并生成文件存储到本地
+     */
+    // const aiimages = await mongoose.connection.collection('aiimages').find().toArray()
+    // await aiimagesByChunk(aiimages)
+    // console.log('查询到的数据：', JSON.stringify(aiimages, null, 2));
+    // console.log('查询到的数据：', aiimages.length);
 
   } catch (error) {
     console.error('init整体抓取的报错信息:', error)
-  }
+  }finally {
+      // 无论成功失败，都关闭数据库连接
+      // await mongoose.disconnect();
+      // console.log('数据库连接已关闭');
+    }
 }
 
 // 连接数据库
