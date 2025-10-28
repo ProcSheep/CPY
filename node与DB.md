@@ -312,10 +312,34 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   > 但是不保证数据插入是否成功,所以丢失数据也不知道
 
 ### 删（可扩展）
-- 删除对标新增: `deleteOne deleteMany findOneAndDelete`, 参数也是filter和options(可选自查)，写好要删除的文档的查询条件； 额外的findOneAndDelete 返回被删除的文档，如果找不到匹配的文档，则返回 null。
-
- > 又补充接着写 ... 
-
+- 删除对标新增: `deleteOne deleteMany findOneAndDelete`, 参数也是filter和options(可选自查)，写好要删除的文档的查询条件；
+  - 删除单个文档（匹配的第一个）
+  ```js
+    db.collection.deleteOne(<查询条件>)
+  ```
+  > 返回值：包含删除结果的对象（deletedCount 表示实际删除的文档数）
+  - 多个(语法同理，匹配的全删)
+  ```js
+    db.collection.deleteMany(<查询条件>)
+    // 清空数据库 慎用
+    db.collection.deleteMany({})
+  ``` 
+  > deleteOne() 和 deleteMany() 都是==原子操作==，要么全部成功，要么全部失败（==不会部分删除==）。
+- ==findOneAndDelete() 是一个原子操作方法==，用于查询并删除单个文档，同时返回被删除的文档。它结合了 “查询” 和 “删除” 两个步骤，适用于需要获取被删除文档信息的场景（如记录操作日志、确认删除内容等）
+  ```js
+    db.collection.findOneAndDelete(
+      <查询条件>, // 筛选要删除的文档（与 find() 条件语法一致）
+      <可选配置>  // 可选参数，如排序方式（sort）、投影（projection）等
+    )
+  ```
+- 核心特性:  
+  - 只删一个：即使查询条件匹配多个文档，也只会删除第一个符合条件的文档（默认按自然顺序，可通过 sort 配置调整顺序）。
+  - 返回被删文档：删除成功后，会返回被删除的完整文档（区别于 deleteOne() 只返回删除数量）。
+  - 支持排序：通过 sort 配置可指定删除 “符合条件的文档中排序后的第一个”（如删除最新 / 最早的文档）。
+- ==3个删除==
+  - findOneAndDelete()	删除单个文档 + 返回被删文档	需要获取被删除内容（如日志记录、二次确认）
+  - deleteOne()	删除单个文档 + 返回删除数量（无文档内容）	只需删除，无需关心被删文档详情
+  - deleteMany()	删除所有匹配文档 + 返回删除数量	批量删除多个文档
 
 ### 查
 - 1.find查询: 
@@ -333,7 +357,7 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   ···
   > 第一个是查询条件，第二个指定不显示的属性（0），或者指定显示的属性（1）， 只能写一种（0或1），不写就全部显示
 - 2.findOne: 同理查询，但是只会返回查到符合条件的第一个结果
-- ==3.关系运算符==
+- ==3.关系运算符(查询最常用)==
 
 
 | 操作符       | 语法示例                  | 描述                                   | 适用类型                 |
@@ -433,7 +457,20 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   - ==`$and` 可省略的场景：当多个条件用逗号分隔时，默认就是“与”逻辑（如 `{ a: 1, b: 2 }` 等价于 `{ $and: [ {a:1}, {b:2} ] }`）==。
   - `$not` 作用于**整个条件**，而非单个字段（例如可用于否定正则表达式匹配）。
   - 复杂查询中可嵌套使用逻辑运算符（如 `$and` 中包含 `$or`），实现多维度条件判断。
-### 查-操作符（待）
+### 查-操作符（拓）
+
+- 1.元素操作符
+  - `$`exists	字段是否存在	{ email: { $exists: true } } → 存在 email 字段
+  - `$`type	字段值的类型	{ age: { $type: "number" } } → age 是数字类型
+- 2.数组操作符
+  - `$`all	数组包含所有指定元素	{ tags: { $all: ["js", "css"] } } → tags 数组同时包含 "js" 和 "css"
+  - `$`elemMatch	数组中至少有一个元素满足所有条件	`{ scores: { $elemMatch: { $gt: 80, $lt: 90 } } }` → scores 数组中存在 80-90 之间的元素
+  - `$`size	数组长度等于指定值	{ hobbies: { $size: 3 } } → hobbies 数组有 3 个元素
+- 3.其他常用操作符
+  - `$`regex：正则匹配（已讲），如 `{ name: { $regex: "^A", $options: "i" } }` → 名字以 A 开头（忽略大小写）。
+  - `$`text：文本搜索（需先创建文本索引），如 `{ $text: { $search: "mongodb tutorial" } }` → 搜索包含指定关键词的文档。
+  - `$`expr：使用聚合表达式在查询中计算，如 `{ $expr: { $gt: ["$score", "$passLine"] } }` → 比较两个字段的值。
+
 
 ### 改
 - 1.`db.collection.updateOne()`: 参数为 query(条件)，update(更新操作符+更新内容) options（更新选项）
@@ -535,7 +572,28 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     ```
   - 2.3 数组操作符 `$push $pop $pull $addToSet` .....
   - 2.4 条件操作符 `$setOnInsert $currentDate` ..... 
-### 改-操作符（待）
+### 改-操作符（拓）
+- 更新操作通过 updateOne()、updateMany() 等方法执行，核心是通过更新操作符（以 `$` 开头）定义字段的修改逻辑，常用操作符如下：
+  - ==`$set`	设置字段值（新增或覆盖现有字段）==	{ $set: { age: 25, status: "active" } } → 将 age 设为 25，status 设为 active
+  - `$unset`	删除指定字段	{ $unset: { address: 1 } } → 删除 address 字段
+  - `$inc`	对数字字段进行增减（原子操作）	{ $inc: { score: 10, views: 1 } } → score+10，views+1
+  - `$mul`	对数字字段进行乘法运算	{ $mul: { price: 0.9 } } → 价格乘以 0.9（打 9 折）
+  - `$rename`	重命名字段	{ $rename: { "oldName": "newName" } } → 将 oldName 改名为 newName
+- 2.数组更新
+  - `$`push	向数组添加元素（可配合 `$`each 批量添加）	`{ $push: { tags: { $each: ["js", "css"] } } }` → 向 tags 数组添加两个元素
+  - ==`$`addToSet	向数组添加元素（去重，已存在则不添加）==	{ $addToSet: { hobbies: "reading" } } → 仅当 hobbies 中没有 reading 时添加
+  - `$`pop	删除数组首尾元素（1 删尾，-1 删首）	{ $pop: { scores: 1 } } → 删除 scores 数组最后一个元素
+  - `$`pull	删除数组中符合条件的元素	`{ $pull: { scores: { $lt: 60 } } }` → 删除 scores 中小于 60 的元素
+  - `$`pullAll	删除数组中与指定值匹配的所有元素	{ $pullAll: { tags: ["old", "useless"] } } → 删除 tags 中的两个元素
+- 3.其他
+  - ==`$`currentDate	将字段值设为当前时间（Date 类型）==	{ $currentDate: { lastLogin: true } } → lastLogin 设为当前时间
+  - `$`min	仅当新值小于当前值时更新	{ $min: { score: 80 } } → 若当前 score>80，则更新为 80，否则不变
+  - `$`max	仅当新值大于当前值时更新	{ $max: { level: 5 } } → 若当前 level<5，则更新为 5，否则不变
+
+1
+
+
+
 
 ## 排序与分页
 - 排序语法： `db.collection.find({...}).sort({ field1: 1, field2: -1 })`
@@ -1372,10 +1430,134 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   - ==$lookup 仅支持类似 LEFT JOIN 的逻辑==：即使目标集合无匹配文档，当前文档仍会保留，关联结果为 empty 数组。
   - ==结果格式不同==：$lookup 将关联文档嵌入当前文档的数组字段中，而 SQL JOIN 会将结果展平为多列。
 
-## replaceRoot(待)
-- 把一个属性提到根部，并且删除其他属性
+## replaceRoot
+- `$replaceRoot` 是一个用于重定义文档结构的阶段操作符，它的核心作用是：==将指定的子文档（或表达式结果）提升为文档的根节点，替换原文档的结构==
+- 原始文档
+  ```json
+    {
+      _id: 1,
+      user: { name: "Alice", age: 25 },
+      score: 90
+    }
+  ```
+- 使用 $replaceRoot 后, 提升user
+  ```js
+    { $replaceRoot: { newRoot: "$user" } }
+  ```
+  ```json
+    // 结果文档（仅保留 user 内容，原 _id、score 被移除）
+    { name: "Alice", age: 25 }
+  ```
+## 聚合系统变量
+- 系统变量有2个`$`, 比如`$$ROOT`,==`$$ROOT` 是最常用的系统变量，代表 “当前完整文档”==
+- 例如： 假设 Topappdata 集合中有两条 id 相同的文档：
+  ```json
+    // 文档1
+    { id: "6753701106", appId: "com.test.app1", title: "测试应用1", time: "2025-10-09" }
+    // 文档2（id 与文档1相同，属于同一组）
+    { id: "6753701106", appId: "com.test.app1", title: "测试应用1", time: "2025-10-10" }
+  ```
+- 执行语句 `{ $group: { _id: "$id", data: { $first: "$$ROOT" } } }`
+- 按照id分组，然后`$$ROOT`就代表分组后的完整文档，然后取这条文档的第一条数据
+  ```js
+    {
+      _id: "6753701106", // 分组键（id字段值）
+      data: { id: "6753701106", appId: "com.test.app1", title: "测试应用1", time: "2025-10-09" } // 分组内第一条完整文档（$$ROOT 引用的内容）
+    }
+  ```
+- ==其他的常用==
+  - `$$CURRENT`：引用当前聚合阶段正在处理的文档（和 `$$ROOT` 类似，但在某些嵌套场景下更精准）。
+  - `$$REMOVE`：在 `$`project 或 `$`addFields 中使用，代表 “移除当前文档”（返回空，不包含该文档在结果中）
+- ==去重案例应用==
+- 1.有重复id的数据(数据库插入)
+  ```js
+    // 插入测试数据（模拟你的 Topappdata 集合结构）
+    db.testTopappdata.insertMany([
+      {
+        id: "6753701106",
+        appId: "com.linquist.motorlogbook",
+        title: "MotorLogBook",
+        time: "2025-10-09 00:00:53",
+        collection_name: "TOP_PAID_IOS"
+      },
+      {
+        id: "6753701106", // 重复 id
+        appId: "com.linquist.motorlogbook",
+        title: "MotorLogBook（重复）",
+        time: "2025-10-09 01:00:53", // 时间更新
+        collection_name: "TOP_PAID_IOS"
+      },
+      {
+        id: "6753686972",
+        appId: "com.mah.v0y4j3rr04d",
+        title: "VoyagerRoad",
+        time: "2025-10-09 00:02:29",
+        collection_name: "NEW_FREE_IOS"
+      },
+      {
+        id: "6753686972", // 重复 id
+        appId: "com.mah.v0y4j3rr04d",
+        title: "VoyagerRoad（重复）",
+        time: "2025-10-09 02:02:29", // 时间更新
+        collection_name: "NEW_FREE_IOS"
+      }
+    ]);
+  ```
+- 2.执行去重操作
+- 实现 “按 id 分组去重 → 保留每组第一条完整文档 → 还原原始文档结构”
+  ```js
+    // 聚合管道（对应你代码中 checked == 'true' 的核心逻辑）
+    const result = db.testTopappdata.aggregate([
+      // 步骤1：按 id 分组，保留每组第一条完整文档（$$ROOT 引用完整文档）
+      {
+        $group: {
+          _id: "$id", // 分组键：按 id 去重
+          data: { $first: "$$ROOT" } // 保留每组第一条完整文档到 data 字段
+        }
+      },
+      // 步骤2：将 data 字段的完整文档提升为根节点（还原原始结构）
+      {
+        $replaceRoot: { newRoot: "$data" }
+      },
+      // 步骤3：按时间降序排序（可选，和你代码中的排序逻辑一致）
+      {
+        $sort: { time: -1 }
+      }
+    ]).toArray();
 
-
+    // 打印结果
+    console.log("去重后的文档（共", result.length, "条）：");
+    console.log(result);
+  ```
+- 3.测试结果
+- 最终输出会是 2 条去重后的文档，每条都是对应 id 分组内的第一条完整文档，结构和原始文档完全一致
+  ```json
+    // 输出示例（已去重，保留原始文档结构）
+    // 去重后的文档（共 2 条）：
+    [
+      {
+        "_id": ObjectId("..."),
+        "id": "6753686972",
+        "appId": "com.mah.v0y4j3rr04d",
+        "title": "VoyagerRoad",
+        "time": "2025-10-09 00:02:29",
+        "collection_name": "NEW_FREE_IOS"
+      },
+      {
+        "_id": ObjectId("..."),
+        "id": "6753701106",
+        "appId": "com.linquist.motorlogbook",
+        "title": "MotorLogBook",
+        "time": "2025-10-09 00:00:53",
+        "collection_name": "TOP_PAID_IOS"
+      }
+    ]
+  ```
+- ==核心观点==
+  - `$`group: `{ _id: "$id", data: { $first: "$$ROOT" } }`：和你代码完全一致，按 id 去重，用 `$$ROOT` 保留完整文档。
+  - `$`replaceRoot：还原文档结构，去掉分组产生的 _id 和 data 临时字段，和原始文档格式一致。
+  - 整个流程无数据丢失，且实现了 “相同 id 只保留一条” 的去重效果。
+ 
 ## 视图
 - 视图（View） 是基于一个或多个集合的查询结果构建的虚拟集合，它本身不存储实际数据，而是动态计算并返回底层集合的数据。视图的作用类似于 SQL 中的视图，==主要用于简化复杂查询、封装数据逻辑或限制数据访问范围==
 - 核心特性
