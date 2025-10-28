@@ -590,14 +590,9 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
   - `$`min	仅当新值小于当前值时更新	{ $min: { score: 80 } } → 若当前 score>80，则更新为 80，否则不变
   - `$`max	仅当新值大于当前值时更新	{ $max: { level: 5 } } → 若当前 level<5，则更新为 5，否则不变
 
-1
-
-
-
-
 ## 排序与分页
 - 排序语法： `db.collection.find({...}).sort({ field1: 1, field2: -1 })`
-  > 可以写多个排序， 1升-1降， 比如上面是先按field1升再按field2降
+  > 排序为 1升-1降
   > 记住是先查出数据再排序
   > ==注意: MongoDB 在执行排序时会对查询结果进行排序，因此可能会影响性能，特别是在大型数据集上排序操作可能会较慢。如果排序字段上有索引，排序操作可能会更高效。在执行频繁的排序操作时，可以考虑创建适当的索引以提高性能。==
 - 分页： 
@@ -605,8 +600,14 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
     // 跳过前 10 个文档(documnet,即10行数据)，返回接下来的 10 个文档
     db.myCollection.find().skip(10).limit(10);
   ```
-## regex/options
-- 拓展的查询操作符
+- ==多个排序的情况==
+  ```js
+    $sort: { { time: -1, sort: 1 }} 
+  ```
+  > ==先根据time降序，在time相同的情况下，可以继续根据sort升序排列==
+## 优化的跳页(待)
+- skip跳页的数据太多，比如上千页，可能比较慢，可以尝试使用时间索引实现快速跳页，需要前端传递一些数据
+- ==由于依靠锚点定位，所以不支持直接跳转到某页，同时在千/万页进行数据查看跳转的实际应用很少所以暂时不记了==
 
 
 
@@ -1367,6 +1368,47 @@ mongosh --host <hostname> --port <port> -u "testuser" -p "password123" --authent
       - 缺少索引支持：如果 `$`match 阶段没有筛选条件（或筛选条件无索引），会对全集合拆分数组，相当于 “遍历 20 万条文档 + 拆分 200 万条数据”
     > 核心： 1.合理的索引 + `$`match操作缩小要拆分的范围 2.避免不必要的拆分，只有必须要计算数组内数据时才可拆分
 - 拓展2: 查询中有skip/limit阶段操作，这里注，同理的skip与limit也无法对整个数组进行操作，所以要在拆分时进行操作，所以这2条语句就在第一次拆分unwind与第二次集合push之间
+## facet
+- `$facet` 是一个非常实用的阶段操作符，它的核心作用是：在同一个聚合管道中，对同一批输入文档并行执行多个独立的子管道（facet），并将每个子管道的结果汇总到一个文档中; ==允许你 “一次查询，完成多个统计任务”==
+  ```json
+    {
+      $facet: {
+        "子管道1名称": [ 子管道1的阶段数组 ],
+        "子管道2名称": [ 子管道2的阶段数组 ],
+        // ... 更多子管道
+      }
+    }
+  ```
+  > 每一个子管道对应着一个match group project等等的聚合函数，前置位可以放共享的筛选条件，字管道内部可以使用，但是字管道之间相互独立
+
+- 一次操作完成两个数据统计
+  ```js
+    const pipeline = [
+      { $match: matchQuery }, // 共享的过滤条件
+      { $sort: { time: -1, sort: 1 } }, // 共享的排序
+      {
+        $facet: {
+          // 子管道1：获取当前页数据（分页）
+          data: [
+            { $skip: (page-1)*limit },
+            { $limit: limit }
+          ],
+          // 子管道2：获取总记录数
+          total: [
+            { $count: "count" } // 统计符合条件的总条数
+          ]
+        }
+      }
+    ];
+
+    // 一次聚合完成两个任务
+    const result = await Topappdata.aggregate(pipeline).allowDiskUse(true);
+
+    // 解析结果
+    const data = result[0].data;
+    const totalRecords = result[0].total[0]?.count || 0; // 从 total 子管道取总数
+  ```
+
 ## lookup
 - `$lookup`:==类似mysql连表查询+外键这种的概念实现,同样可写多个，每写一个就多加一个关联的字段和数据==
   ```js

@@ -151,12 +151,10 @@ const getAppData = async (req, res) => {
       totalpipe.released = filter;
     }
 
-    let pipeline = [
-      //v
-      { $match: matchQuery },
-      { $sort: { time: -1, sort: 1 } },
-    ];
+    // 获取数据库数据
+    const allCategories = await Appcategory.find().lean();
 
+    // 1。data的参数
     const query =
       checked == "true"
         ? [
@@ -178,34 +176,12 @@ const getAppData = async (req, res) => {
             { $limit: limit },
           ]
         : [{ $skip: (page - 1) * limit }, { $limit: limit }];
-    pipeline.push(...query);
 
-    // MongoDB 的聚合聚合操作默认在内存中执行，且对单个聚合阶段的内存使用有限制（默认 100MB）。当聚合管道处理的数据量过大（如大规模排序、分组、关联等操作），内存不足时会直接抛出错误;
-    // allowDiskUse(true) 的作用是：突破内存限制，允许将中间结果写入磁盘的临时文件，从而支持处理远超内存容量的大数据集。
-
-    // 第一次查 给出data
-    // // 唯一可能的地方在这，在磁盘中运行速度太慢
-    const data = await Topappdata.aggregate(pipeline).allowDiskUse(true);
-    console.log("数据" + new Date());
-    // 获取数据库数据
-    const allCategories = await Appcategory.find().lean();
-    console.log("类型" + new Date());
-
-    if (data.length === 0) {
-      return res.json({
-        data,
-        currentPage: 0,
-        totalPages: 0,
-        totalRecords: 0,
-        allCategories,
-      });
-    }
-
-    // 查询总记录数，用于计算总页数
+    // 2. total的参数
     let totalRecords;
+    let data;
     if (checked == "true") {
-      let pageline = [
-        { $match: matchQuery },
+      let total = [
         {
           $group: {
             _id: "$id", // 根据 id 字段分组
@@ -216,15 +192,37 @@ const getAppData = async (req, res) => {
           $count: "totalRecords", // 计算符合条件的文档数量
         },
       ];
-      // 查第二次 .........
-      const result = await Topappdata.aggregate(pageline).allowDiskUse(true);
-      totalRecords = result.length > 0 ? result[0].totalRecords : 0;
-      console.log("数量1 " + new Date());
+
+      const pipeline = [
+        { $match: matchQuery }, // 共享的过滤条件
+        {
+          $facet: {
+            // 子管道1：获取当前页数据（分页）
+            data: [{ $sort: { time: -1, sort: 1 } }, ...query],
+            // 子管道2：获取总记录数
+            total: [...total],
+          },
+        },
+      ];
+
+      // 一次请求完成2个参数，check为true的情况下data/totalRecords
+      const result = await Topappdata.aggregate(pipeline).allowDiskUse(true);
+      data = result[0].data;
+
+      if (data.length === 0) {
+        return res.json({
+          data,
+          currentPage: 0,
+          totalPages: 0,
+          totalRecords: 0,
+          allCategories,
+        });
+      }
+
+      totalRecords = result[0].total[0]?.totalRecords || 0; // 从 total 子管道取总数
     } else {
-      // 最终计算
-      // countDocuments(totalpipe)：集合的计数方法，用于统计符合条件的文档数量：
-      // 参数 totalpipe：查询条件（与 find() 方法的查询条件格式一致，如 { status: "active", createTime: { $gte: "2023-01-01" } }）。
-      // 作用：统计集合中所有满足 totalpipe 条件的文档数量。
+      // else的data和totalRecords
+      data = await Topappdata.aggregate(pipeline).allowDiskUse(true);
       totalRecords = await Topappdata.countDocuments(totalpipe);
       console.log("数量2 " + new Date());
     }
