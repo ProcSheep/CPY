@@ -65,10 +65,192 @@
 - 从零搭建了解原理
 - vue中创建ssr应用: `createSSRApp`
 - 服务端渲染html: renderToString (`@vue/server-renderer`)
+## node服务与打包
 - 从node入手搭建
   - 初始化`npm init`
   - 下载express和webpack相关(`npm i webpack webpack-cli webpack-node-externals`)
-  
+  - 书写基本启动文件 app.js
+    ```js
+      // server/index.js
+      const express = require("express");
+      const app = express();
+
+      app.get("/", (req, res) => {
+        res.send(`
+            Hello world
+          `);
+      });
+
+      app.listen(3000, () => {
+        console.log("服务器启动成功，端口3000");
+      });
+    ```
+  - 配置打包wp.config.js
+    ```js
+      let path = require("path");
+      let nodeExternals = require("webpack-node-externals");
+      module.exports = {
+        target: "node", // 打包目标语言：可以省略node内置包(fs path等)的打包，减少打包体积
+        entry: "./src/server/index.js", // 要打包的文件位置： 相对于启动目录(package.json)
+        output: {
+          // 输出位置
+          filename: "server_bundle.js",
+          path: path.resolve(__dirname, "../build/server"),
+        },
+        // 排除node第三方库(node_module)的打包，例如express等 可以极大缩小打包体积
+        externals: [nodeExternals()],
+      };
+    ```
+  - 配置启动指令package.json
+    ```json
+      "scripts": {
+          "test": "echo \"Error: no test specified\" && exit 1",
+          "dev": "nodemon ./src/server/index.js",
+          "build:server": "webpack --config ./config/wp.config.js --watch",
+          "start": "nodemon ./build/server/server_bundle.js"
+        },
+    ```
+    > build:server: webpack后是打包的配置文件，--watch是监视被打包文件是否发生变化，一旦变化重新打包，相当于nodemon功能
+    > start：动态执行被打包好的文件
+    > ==两者结合，只要改变被打包文件，会自动重新打包，重新打包的新文件又触发nodemon，重新启动被打包的服务器，一条龙，需要启动两个终端服务（webpack/nodemon)==
+    > 打包好的文件和原文件执行效果相同
+- ==注意区分环境依赖(package.json)==
+  ```bash
+    npm install axios       # 等价于 npm install axios --save
+    npm install react -S    # 显式指定生产依赖
+
+    npm install webpack -D       # 等价于 npm install webpack --save-dev
+    npm install eslint --save-dev # 显式指定开发依赖
+  ```
+  - ==开发环境依赖==（devDependencies）：仅在开发阶段需要的工具或库（如代码检查、测试工具、打包工具等），项目上线后运行时不需要。例如：eslint（代码检查）、webpack（打包工具）、jest（测试框架）、nodemon（开发热重载）等。
+  - ==生产环境依赖==（dependencies）：项目上线运行时必须依赖的库（如业务逻辑依赖、UI 库、请求库等）。例如：react（UI 框架）、axios（网络请求）、lodash（工具函数库）等
+  > ==最终打包会打包生产环境依赖的库，来保证线上产品的正常运行，开发依赖不会被打包，这些依赖只会在开发阶段辅助开发，所以这样可以减少打包体积==
+  ```json
+  // package.json 
+  // webpack打包时会参考这个,可以直接修改代码来更改webpack的打包逻辑
+    "dependencies": {
+      "express": "^5.1.0",
+      "vue": "^3.5.22"
+    },
+    "devDependencies": {
+      "@babel/preset-env": "^7.28.5",
+      "babel-loader": "^10.0.0",
+      "vue-loader": "^17.4.2",
+      "webpack": "^5.102.1",
+      "webpack-cli": "^6.0.1",
+      "webpack-node-externals": "^3.0.0"
+    }
+  ```
+## Vue转化静态HtmlString
+- 内部require->import（node均支持） 
+- 安装: `npm i vue vue-loader`
+- babel： `npm i babel-loader @babel/preset-env`
+- 书写vue页面 App.vue
+  ```html
+    <template>
+      <div class="app">
+        {{ count }}
+        <button @click="addCount">+1</button>
+      </div>
+    </template>
+
+    <script setup>
+      import { ref } from "vue";
+      const count = ref(10);
+      function addCount() {
+        count.value++;
+      }
+    </script>
+  ```
+- 单独写函数，负责转化vue代码 app.js
+  ```js
+    import { createSSRApp } from "vue";
+    import App from "./App.vue";
+
+    // 函数作用： 防止跨请求状态污染，函数可以保证每一个请求都会返回一个新的app实例
+    export default function createApp() {
+      let app = createSSRApp(App); // 转化App.vue
+      return app;
+    }
+  ```
+  > 跨域请求污染后面说
+- 转化SSRApp实例为html字符串格式，加入后端express
+  ```js
+    // server/index.js
+    import express from "express";
+    import createApp from "../app";
+    import { renderToString } from "@vue/server-renderer";
+
+    const server = express();
+
+    server.get("/", async (req, res) => {
+      const app = createApp(); // 
+      let appStringHtml = await renderToString(app);
+      res.send(`
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>Document</title>
+            </head>
+            <body>
+              <div id="app">
+                ${appStringHtml}
+              </div>
+            </body>
+          </html>
+        `);
+    });
+
+    server.listen(3000, () => {
+      console.log("服务器启动成功，端口3000");
+    });
+  ```
+- 对vue文件打包，wp.config.js配置针对vue的打包规则等
+  ```js
+    let path = require("path");
+    let nodeExternals = require("webpack-node-externals");
+    let { VueLoaderPlugin } = require("vue-loader/dist/index");
+    module.exports = {
+      target: "node", // 打包目标语言：可以省略node内置包(fs path等)的打包，减少打包体积
+      entry: "./src/server/index.js", // 相对于启动目录(package.json)
+      output: {
+        // 输出地
+        filename: "server_bundle.js",
+        path: path.resolve(__dirname, "../build/server"),
+      },
+      // 排除node第三方库(node_module)的打包，例如express等 可以极大缩小打包体积
+      externals: [nodeExternals()],
+      resolve: {
+        //  针对打包, 添加后，项目导包不用加下面扩展名
+        extensions: [".js", ".json", ".wasm", ".jsx", ".vue"],
+      },
+      // 打包规则配置 （loader打包器）
+      module: {
+        rules: [
+          {
+            test: /\.js$/,
+            loader: "babel-loader",
+            options: {
+              presets: ["@babel/preset-env"],
+            },
+          },
+          {
+            test: /\.vue$/,
+            loader: "vue-loader",
+          },
+        ],
+      },
+      // 打包vue需配置的插件
+      plugins: [new VueLoaderPlugin()],
+    };
+  ```
+- 打包成功后，运行打包文件`npm run start`，进入网页查看，此时vue的代码已经被转化插入了网页代码中，如下
+  xxxx(图片待)
+  > ==后续操作：此时仍然是静态的网页，需要激活hydration==
+
+## Hydration
 
 
 

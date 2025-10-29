@@ -155,6 +155,12 @@ const getAppData = async (req, res) => {
     const allCategories = await Appcategory.find().lean();
 
     // 1。data的参数
+    let pipeline_2 = [
+      // 用于check=fasle / else查询
+      { $match: matchQuery },
+      { $sort: { time: -1, sort: 1 } },
+    ];
+
     const query =
       checked == "true"
         ? [
@@ -176,6 +182,8 @@ const getAppData = async (req, res) => {
             { $limit: limit },
           ]
         : [{ $skip: (page - 1) * limit }, { $limit: limit }];
+
+    pipeline_2.push(...query);
 
     // 2. total的参数
     let totalRecords;
@@ -222,8 +230,8 @@ const getAppData = async (req, res) => {
       totalRecords = result[0].total[0]?.totalRecords || 0; // 从 total 子管道取总数
     } else {
       // else的data和totalRecords
-      data = await Topappdata.aggregate(pipeline).allowDiskUse(true);
-      totalRecords = await Topappdata.countDocuments(totalpipe);
+      data = await Topappdata.aggregate(pipeline_2).allowDiskUse(true);
+      totalRecords = await Topappdata.countDocuments(pipeline_2);
       console.log("数量2 " + new Date());
     }
     // 计算总页数

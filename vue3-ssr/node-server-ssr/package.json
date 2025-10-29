@@ -13,6 +13,12 @@
   "license": "ISC",
   "dependencies": {
     "express": "^5.1.0",
+    "vue": "^3.5.22"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.28.5",
+    "babel-loader": "^10.0.0",
+    "vue-loader": "^17.4.2",
     "webpack": "^5.102.1",
     "webpack-cli": "^6.0.1",
     "webpack-node-externals": "^3.0.0"
